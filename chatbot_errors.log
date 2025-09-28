@@ -1,0 +1,235 @@
+[19-Sep-2025 22:47:27 Europe/Berlin] Pregunta recibida: hola
+[19-Sep-2025 22:47:28 Europe/Berlin] Código HTTP: 429
+[19-Sep-2025 22:47:28 Europe/Berlin] Error cURL: 
+[19-Sep-2025 22:47:28 Europe/Berlin] Respuesta API: {
+    "error": {
+        "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.",
+        "type": "insufficient_quota",
+        "param": null,
+        "code": "insufficient_quota"
+    }
+}
+
+[19-Sep-2025 22:47:28 Europe/Berlin] Error HTTP: 429 - Array
+(
+    [error] => Array
+        (
+            [message] => You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.
+            [type] => insufficient_quota
+            [param] => 
+            [code] => insufficient_quota
+        )
+
+)
+
+[19-Sep-2025 22:47:42 Europe/Berlin] Pregunta recibida: como puedo hacer finanzas
+[19-Sep-2025 22:47:43 Europe/Berlin] Código HTTP: 429
+[19-Sep-2025 22:47:43 Europe/Berlin] Error cURL: 
+[19-Sep-2025 22:47:43 Europe/Berlin] Respuesta API: {
+    "error": {
+        "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.",
+        "type": "insufficient_quota",
+        "param": null,
+        "code": "insufficient_quota"
+    }
+}
+
+[19-Sep-2025 22:47:43 Europe/Berlin] Error HTTP: 429 - Array
+(
+    [error] => Array
+        (
+            [message] => You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.
+            [type] => insufficient_quota
+            [param] => 
+            [code] => insufficient_quota
+        )
+
+)
+
+[19-Sep-2025 22:51:15 Europe/Berlin] Pregunta recibida: como calculo mi balance mensual ?
+[19-Sep-2025 22:51:15 Europe/Berlin] Código HTTP: 429
+[19-Sep-2025 22:51:15 Europe/Berlin] Respuesta API: {
+    "error": {
+        "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.",
+        "type": "insufficient_quota",
+        "param": null,
+        
+[19-Sep-2025 22:51:15 Europe/Berlin] Error HTTP 429: Array
+(
+    [error] => Array
+        (
+            [message] => You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.
+            [type] => insufficient_quota
+            [param] => 
+            [code] => insufficient_quota
+        )
+
+)
+
+[19-Sep-2025 22:55:20 Europe/Berlin] Pregunta recibida: ¿Cómo calculo mi balance mensual?
+[19-Sep-2025 22:55:21 Europe/Berlin] Código HTTP: 429
+[19-Sep-2025 22:55:21 Europe/Berlin] Respuesta API: {
+    "error": {
+        "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.",
+        "type": "insufficient_quota",
+        "param": null,
+        
+[19-Sep-2025 22:55:21 Europe/Berlin] Error HTTP 429: Array
+(
+    [error] => Array
+        (
+            [message] => You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.
+            [type] => insufficient_quota
+            [param] => 
+            [code] => insufficient_quota
+        )
+
+)
+
+[19-Sep-2025 23:02:04 Europe/Berlin] Pregunta recibida: hola
+[19-Sep-2025 23:02:05 Europe/Berlin] Código HTTP: 401
+[19-Sep-2025 23:02:05 Europe/Berlin] Respuesta API: {
+    "error": {
+        "message": "Incorrect API key provided: AIzaSyA-***************************NgwY. You can find your API key at https://platform.openai.com/account/api-keys.",
+        "type": "invalid_request_error",
+        "param": null,
+        "code": "invalid_api_key"
+    }
+}
+
+[19-Sep-2025 23:02:05 Europe/Berlin] Error HTTP 401: Array
+(
+    [error] => Array
+        (
+            [message] => Incorrect API key provided: AIzaSyA-***************************NgwY. You can find your API key at https://platform.openai.com/account/api-keys.
+            [type] => invalid_request_error
+            [param] => 
+            [code] => invalid_api_key
+        )
+
+)
+
+[19-Sep-2025 23:03:08 Europe/Berlin] Pregunta recibida: hola
+[19-Sep-2025 23:03:09 Europe/Berlin] Código HTTP: 401
+[19-Sep-2025 23:03:09 Europe/Berlin] Respuesta API: {
+    "error": {
+        "message": "Incorrect API key provided: AIzaSyA-***************************NgwY. You can find your API key at https://platform.openai.com/account/api-keys.",
+        "type": "invalid_request_error",
+        "param": null,
+        "code": "invalid_api_key"
+    }
+}
+
+[19-Sep-2025 23:03:09 Europe/Berlin] Error HTTP 401: Array
+(
+    [error] => Array
+        (
+            [message] => Incorrect API key provided: AIzaSyA-***************************NgwY. You can find your API key at https://platform.openai.com/account/api-keys.
+            [type] => invalid_request_error
+            [param] => 
+            [code] => invalid_api_key
+        )
+
+)
+
+[19-Sep-2025 23:04:27 Europe/Berlin] Pregunta recibida: hola
+[19-Sep-2025 23:04:29 Europe/Berlin] Código HTTP: 200
+[19-Sep-2025 23:04:29 Europe/Berlin] Respuesta API: {
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Hola. Estoy a su disposición para responder sus preguntas sobre las finanzas de pequeñas empresas.  Por favor, pregúnteme cualquier cosa relacionada con ingresos, gastos, presupuestos o estrategias fi
+[19-Sep-2025 23:05:06 Europe/Berlin] Pregunta recibida: ¿Cómo puedo calcular mi balance mensual si gano 5000 y gasto 4200?
+[19-Sep-2025 23:05:08 Europe/Berlin] Código HTTP: 200
+[19-Sep-2025 23:05:08 Europe/Berlin] Respuesta API: {
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Para calcular tu balance mensual, simplemente restas tus gastos de tus ingresos.  En tu caso:\n\n5000 (ingresos) - 4200 (gastos) = 800 (balance)\n\nTu balance mensual es de 800.  Esto significa que tiene
+[19-Sep-2025 23:09:31 Europe/Berlin] Pregunta recibida: como puedo calcular el punto de equilibrio?
+[19-Sep-2025 23:09:38 Europe/Berlin] Código HTTP: 200
+[19-Sep-2025 23:09:38 Europe/Berlin] Respuesta API: {
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "El punto de equilibrio es el punto donde tus ingresos totales igualan tus costos totales, es decir, donde no hay ni beneficio ni pérdida.  Hay varias maneras de calcularlo, dependiendo de la informació
+[19-Sep-2025 23:13:46 Europe/Berlin] Pregunta recibida: ¿Cómo puedo calcular mi balance mensual si gano 5000 y gasto 4200?
+[19-Sep-2025 23:13:48 Europe/Berlin] Código HTTP: 200
+[19-Sep-2025 23:13:48 Europe/Berlin] Respuesta API: {
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Para calcular tu balance mensual, simplemente restas tus gastos de tus ingresos.  En tu caso:\n\n5000 (ingresos) - 4200 (gastos) = 800 (balance)\n\nTu balance mensual es de 800.  Esto significa que tiene
+[19-Sep-2025 23:14:08 Europe/Berlin] Pregunta recibida: cuando termino la primera guerra mundal
+[19-Sep-2025 23:14:10 Europe/Berlin] Código HTTP: 200
+[19-Sep-2025 23:14:10 Europe/Berlin] Respuesta API: {
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Entendido.  Estoy listo para responder sus preguntas sobre ingresos, gastos, presupuestos y estrategias financieras para pequeñas empresas.  Por favor, pregúnteme lo que necesite.\n"
+          }
+      
+[19-Sep-2025 23:14:43 Europe/Berlin] Pregunta recibida: si tengo 10 manzanas y lo pago con -10 soles
+[19-Sep-2025 23:14:45 Europe/Berlin] Código HTTP: 200
+[19-Sep-2025 23:14:45 Europe/Berlin] Respuesta API: {
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Disculpa, pero tu pregunta sobre pagar 10 manzanas con -10 soles no es una situación financiera válida.  El concepto de una cantidad negativa de dinero no se aplica en el mundo real.  Para poder ayudar
+[20-Sep-2025 18:47:55 Europe/Berlin] Pregunta recibida: hola puedes darme consejos para menorar  mis gastos
+[20-Sep-2025 18:48:01 Europe/Berlin] Código HTTP: 200
+[20-Sep-2025 18:48:01 Europe/Berlin] Respuesta API: {
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Claro que sí.  Para disminuir tus gastos, necesitas un enfoque estratégico.  Te recomiendo seguir estos pasos:\n\n**1.  Identifica tus gastos:**  El primer paso crucial es saber a dónde va tu dinero. 
+[20-Sep-2025 21:22:39 Europe/Berlin] Pregunta recibida: Quiero registrar un ingreso rápido
+[20-Sep-2025 21:22:42 Europe/Berlin] Código HTTP: 200
+[20-Sep-2025 21:22:42 Europe/Berlin] Respuesta API: {
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Entiendo que quieres registrar un ingreso rápido. Para ayudarte mejor, necesito más información.  ¿De qué tipo de ingreso se trata?  ¿Es un pago por un servicio ya prestado, la venta de un producto
+[20-Sep-2025 21:23:00 Europe/Berlin] Pregunta recibida: Quiero registrar un gasto rápido
+[20-Sep-2025 21:23:02 Europe/Berlin] Código HTTP: 200
+[20-Sep-2025 21:23:02 Europe/Berlin] Respuesta API: {
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Entiendo que quieres registrar un gasto rápidamente. Para ayudarte de la mejor manera, necesito más información.  Por favor, dime:\n\n* **¿Cuál es el importe del gasto?**\n* **¿A qué categoría pe
+[20-Sep-2025 21:37:55 Europe/Berlin] Pregunta recibida: ¿Cómo puedo ahorrar más dinero?
+[20-Sep-2025 21:38:00 Europe/Berlin] Código HTTP: 200
+[20-Sep-2025 21:38:00 Europe/Berlin] Respuesta API: {
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Para ahorrar más dinero en tu pequeña empresa, necesitas enfocarte en aumentar tus ingresos y controlar tus gastos.  Aquí te presento algunas estrategias:\n\n**Aumentar Ingresos:**\n\n* **Optimizació
+[20-Sep-2025 21:38:19 Europe/Berlin] Pregunta recibida: Quiero registrar un ingreso rápido
+[20-Sep-2025 21:38:22 Europe/Berlin] Código HTTP: 200
+[20-Sep-2025 21:38:22 Europe/Berlin] Respuesta API: {
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Entiendo que quieres registrar un ingreso rápido.  Para ayudarte mejor, necesito más información.  Por favor, dime:\n\n* **¿De qué tipo de ingreso se trata?** (ej. venta de un producto, cobro de un 
