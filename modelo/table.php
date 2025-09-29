@@ -21,11 +21,18 @@ $stmt->execute([':id' => $id_usuario]);
 $gastos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 if ($gastos) {
-    // Establecer idioma español para la fecha
-    setlocale(LC_TIME, 'es_ES.UTF-8', 'es_ES', 'spanish');
+    // Formateador de fechas en español
+    $formatter = new IntlDateFormatter(
+        'es_ES', // idioma
+        IntlDateFormatter::LONG, // formato largo (ejemplo: 29 de septiembre de 2025)
+        IntlDateFormatter::NONE,
+        'America/Lima', // zona horaria
+        IntlDateFormatter::GREGORIAN
+    );
 
     foreach ($gastos as $gasto) {
-        $fecha = strftime("%d de %B de %Y", strtotime($gasto['fecha']));
+        $date = new DateTime($gasto['fecha']);
+        $fecha = $formatter->format($date);
 
         echo "<tr>";
         echo "<td>S/." . number_format($gasto['monto'], 2) . "</td>";
