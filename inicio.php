@@ -19,7 +19,7 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="shortcut icon" href="icono-ic.png" sizes="96x96" type="image/x-icon">
+    <link rel="shortcut icon" href="icono-ic.png" sizes="32x32" type="image/x-icon">
     <link rel="stylesheet" href="css/reset.css">
     <link rel="stylesheet" href="css/inicio/inicio.css">
     <link rel="stylesheet" href="css/inicio/calculadora.css">
@@ -1912,7 +1912,7 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
     </style>
-        <style>
+    <style>
    /* Contenedor del logo */
 .brand-logo {
     width: 260px; /* ancho para logos horizontales */

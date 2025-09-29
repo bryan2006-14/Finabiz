@@ -37,7 +37,6 @@ if ($_POST) {
 }
 ?>
 
-
 <!DOCTYPE html>
 <html lang="es">
 
@@ -71,7 +70,8 @@ if ($_POST) {
             <div class="panel-content">
                 <div class="brand-section">
                     <div class="brand-logo">
-                        <i class="fas fa-wallet"></i>
+                        <!-- Logo personalizado -->
+                        <img src="logo_finabiz.png" alt="ControlGastos Logo" class="logo-img">
                     </div>
                     <h1 class="brand-title">ControlGastos</h1>
                     <p class="brand-subtitle">Tu asistente financiero personal</p>
@@ -164,6 +164,10 @@ if ($_POST) {
             <div class="form-container">
                 <!-- Header del formulario -->
                 <div class="form-header">
+                    <!-- Logo también en el formulario -->
+                    <div class="form-logo">
+                        <img src="icono-ic.png" alt="ControlGastos" class="form-logo-img">
+                    </div>
                     <h2>¡Bienvenido de nuevo!</h2>
                     <p>Inicia sesión en tu cuenta para continuar</p>
                 </div>
@@ -180,7 +184,7 @@ if ($_POST) {
                 <?php endif; ?>
 
                 <!-- Formulario -->
-                <form action="<?php echo $_SERVER['PHP_SELF']; ?>" method="post" class="login-form" onsubmit="return validateForm()">
+                <form action="<?php echo $_SERVER['PHP_SELF']; ?>" method="post" class="login-form" id="loginForm">
                     <div class="input-group">
                         <div class="input-container">
                             <i class="fas fa-envelope input-icon"></i>
@@ -212,23 +216,25 @@ if ($_POST) {
                     </div>
 
                     <button type="submit" class="login-btn" id="loginBtn">
-                        <span class="btn-text">Iniciar Sesión</span>
-                        <div class="btn-loading" id="btnLoading">
-                            <i class="fas fa-spinner fa-spin"></i>
-                        </div>
+                        <span class="btn-content">
+                            <span class="btn-text">Iniciar Sesión</span>
+                            <span class="btn-loading">
+                                <span class="spinner"></span>
+                                <span class="loading-text">Iniciando sesión...</span>
+                            </span>
+                        </span>
                     </button>
 
                     <div class="form-divider">
                         <span>o continúa con</span>
                     </div>
-<div class="social-login">
-    <a href="social_login.php?provider=google" class="social-btn google-btn" role="button">
-        <i class="fab fa-google"></i>
-        <span>Continuar con Google</span>
-    </a>
-</div>
 
-
+                    <div class="social-login">
+                        <a href="social_login.php?provider=google" class="social-btn google-btn" role="button">
+                            <i class="fab fa-google"></i>
+                            <span>Continuar con Google</span>
+                        </a>
+                    </div>
 
                     <div class="signup-link">
                         <p>¿No tienes una cuenta? <a href="registrarse.php">Regístrate aquí</a></p>
@@ -249,8 +255,8 @@ if ($_POST) {
     </main>
 
     <script>
-        // Variables globales
-        let isFormValid = false;
+        // Prevenir múltiples envíos del formulario
+        let isSubmitting = false;
 
         // Inicialización
         document.addEventListener('DOMContentLoaded', function() {
@@ -261,6 +267,7 @@ if ($_POST) {
         // Inicializar formulario
         function initializeForm() {
             const inputs = document.querySelectorAll('.input-container input');
+            const form = document.getElementById('loginForm');
             
             inputs.forEach(input => {
                 // Efecto de focus en inputs
@@ -282,6 +289,29 @@ if ($_POST) {
                         this.parentElement.classList.remove('filled');
                     }
                 });
+            });
+
+            // Manejar envío del formulario
+            form.addEventListener('submit', function(e) {
+                if (isSubmitting) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                const email = document.getElementById('email');
+                const password = document.getElementById('password');
+                
+                const emailValid = validateField(email);
+                const passwordValid = validateField(password);
+                
+                if (!emailValid || !passwordValid || email.value === '' || password.value === '') {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Mostrar estado de carga
+                isSubmitting = true;
+                showLoading();
             });
         }
 
@@ -320,23 +350,6 @@ if ($_POST) {
             return isValid;
         }
 
-        // Validar formulario completo
-        function validateForm() {
-            const email = document.getElementById('email');
-            const password = document.getElementById('password');
-            
-            const emailValid = validateField(email);
-            const passwordValid = validateField(password);
-            
-            isFormValid = emailValid && passwordValid && email.value !== '' && password.value !== '';
-
-            if (isFormValid) {
-                showLoading();
-            }
-
-            return isFormValid;
-        }
-
         // Toggle password visibility
         function togglePassword() {
             const passwordField = document.getElementById('password');
@@ -353,16 +366,11 @@ if ($_POST) {
             }
         }
 
-        // Mostrar loading en botón
+        // Mostrar loading en botón - MEJORADO
         function showLoading() {
             const btn = document.getElementById('loginBtn');
-            const btnText = btn.querySelector('.btn-text');
-            const btnLoading = document.getElementById('btnLoading');
-            
-            btnText.style.opacity = '0';
-            btnLoading.style.display = 'block';
-            btn.disabled = true;
             btn.classList.add('loading');
+            btn.disabled = true;
         }
 
         // Ocultar mensaje de error
@@ -403,6 +411,12 @@ if ($_POST) {
         // Efecto de ripple en botones
         function createRipple(event) {
             const button = event.currentTarget;
+            
+            // No crear ripple si el botón está en loading
+            if (button.classList.contains('loading')) {
+                return;
+            }
+
             const circle = document.createElement('span');
             const diameter = Math.max(button.clientWidth, button.clientHeight);
             const radius = diameter / 2;
@@ -610,10 +624,17 @@ if ($_POST) {
             align-items: center;
             justify-content: center;
             margin: 0 auto 1.5rem;
-            color: white;
-            font-size: 2rem;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             animation: logoFloat 3s ease-in-out infinite;
+            overflow: hidden;
+        }
+
+        /* Estilos para el logo */
+        .logo-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            padding: 10px;
         }
 
         @keyframes logoFloat {
@@ -876,6 +897,26 @@ if ($_POST) {
             margin-bottom: 2rem;
         }
 
+        /* Logo en el formulario */
+        .form-logo {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 1rem;
+            background: linear-gradient(135deg, );
+            border-radius: 12px;
+            padding: 0px;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .form-logo-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
         .form-header h2 {
             font-family: var(--font-secondary);
             font-size: 2rem;
@@ -1020,6 +1061,7 @@ if ($_POST) {
             padding: 0.5rem;
             border-radius: 4px;
             transition: var(--transition);
+            z-index: 2;
         }
 
         .password-toggle:hover {
@@ -1090,7 +1132,7 @@ if ($_POST) {
             text-decoration: underline;
         }
 
-        /* Botón de login */
+        /* Botón de login MEJORADO */
         .login-btn {
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
             color: white;
@@ -1099,4 +1141,239 @@ if ($_POST) {
             border-radius: var(--border-radius);
             font-size: 1rem;
             font-weight: 600;
-            cursor: pointer; }
+            cursor: pointer;
+            transition: var(--transition);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .login-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+        }
+
+        .login-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .login-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.9;
+        }
+
+        .btn-content {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-text {
+            transition: opacity 0.3s ease;
+        }
+
+        .btn-loading {
+            position: absolute;
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .login-btn.loading .btn-text {
+            opacity: 0;
+        }
+
+        .login-btn.loading .btn-loading {
+            display: flex;
+        }
+
+        /* Spinner mejorado */
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loading-text {
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        /* Ripple effect */
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.6);
+            transform: scale(0);
+            animation: ripple-animation 0.6s ease-out;
+            pointer-events: none;
+        }
+
+        @keyframes ripple-animation {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+
+        .form-divider {
+            position: relative;
+            text-align: center;
+            margin: 1rem 0;
+        }
+
+        .form-divider::before,
+        .form-divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 45%;
+            height: 1px;
+            background: var(--gray-200);
+        }
+
+        .form-divider::before {
+            left: 0;
+        }
+
+        .form-divider::after {
+            right: 0;
+        }
+
+        .form-divider span {
+            background: white;
+            padding: 0 1rem;
+            color: var(--gray-500);
+            font-size: 0.875rem;
+        }
+
+        /* Social login */
+        .social-login {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .social-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            padding: 0.875rem;
+            border: 2px solid var(--gray-200);
+            border-radius: var(--border-radius);
+            background: white;
+            color: var(--gray-700);
+            font-weight: 500;
+            text-decoration: none;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .social-btn:hover {
+            border-color: var(--gray-300);
+            background: var(--gray-50);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .google-btn i {
+            font-size: 1.25rem;
+        }
+
+        .signup-link {
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .signup-link p {
+            color: var(--gray-600);
+            font-size: 0.9rem;
+        }
+
+        .signup-link a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+            transition: var(--transition);
+        }
+
+        .signup-link a:hover {
+            color: var(--primary-dark);
+            text-decoration: underline;
+        }
+
+        /* Footer */
+        .form-footer {
+            padding: 1.5rem 2rem;
+            border-top: 1px solid var(--gray-200);
+            text-align: center;
+        }
+
+        .form-footer p {
+            color: var(--gray-500);
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+        }
+
+        .footer-links a {
+            color: var(--gray-600);
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: var(--transition);
+        }
+
+        .footer-links a:hover {
+            color: var(--primary);
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .login-container {
+                grid-template-columns: 1fr;
+            }
+
+            .info-panel {
+                display: none;
+            }
+
+            .form-panel {
+                overflow-y: auto;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .form-container {
+                padding: 2rem 1.5rem;
+            }
+
+            .form-header h2 {
+                font-size: 1.5rem;
+            }
+
+            .visual-stats {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+        }
+    </style>
+
+</body>
+</html>
