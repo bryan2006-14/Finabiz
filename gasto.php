@@ -18,7 +18,7 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="icono-ic.png" sizes="96x96" type="image/x-icon">
     <link rel="stylesheet" href="css/reset.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -467,10 +467,9 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
 <body>
     <!-- Barra de navegación lateral -->
     <nav class="sidebar">
-        <div class="logo">
-            <i class="fas fa-wallet"></i>
-            <span class="logo-text">ControlGastos</span>
-        </div>
+<div class="brand-logo">
+    <img src="logo_Finabiz.png" alt="Finabiz Logo" class="brand-logo-img">
+</div>
 
         <div class="nav-links">
             <div class="nav-section">
@@ -708,6 +707,32 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
             return new bootstrap.Tooltip(tooltipTriggerEl);
         });
     </script>
+        <style>
+   /* Contenedor del logo */
+.brand-logo {
+    width: 260px; /* ancho para logos horizontales */
+    height: 110px; /* altura rectangular */
+    border: none; /* sin borde */
+    border-radius: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+    animation: logoFloat 4s ease-in-out infinite;
+    padding: 12px 18px;
+    overflow: hidden;
+}
+
+/* Imagen del logo */
+.brand-logo-img {
+    max-width: 100%;   /* ocupa todo el ancho disponible */
+    max-height: 100%;  /* no se pasa de la altura del contenedor */
+    object-fit: contain; /* mantiene proporciones */
+    display: block;
+}
+
+
+</style>
 </body>
 
 </html>

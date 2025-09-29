@@ -19,7 +19,7 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="icono-ic.png" sizes="96x96" type="image/x-icon">
     <link rel="stylesheet" href="css/reset.css">
     <link rel="stylesheet" href="css/inicio/inicio.css">
     <link rel="stylesheet" href="css/inicio/calculadora.css">
@@ -36,10 +36,9 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
 <body>
     <!-- Barra de navegación lateral -->
     <nav class="sidebar">
-        <div class="logo">
-            <i class="fas fa-wallet"></i>
-            <span class="logo-text">ControlGastos</span>
-        </div>
+<div class="brand-logo">
+    <img src="logo_Finabiz.png" alt="Finabiz Logo" class="brand-logo-img">
+</div>
 
         <div class="nav-links">
             <div class="nav-section">
@@ -1913,6 +1912,32 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
     </style>
+    <style>
+   /* Contenedor del logo */
+.brand-logo {
+    width: 260px; /* ancho para logos horizontales */
+    height: 110px; /* altura rectangular */
+    border: none; /* sin borde */
+    border-radius: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+    animation: logoFloat 4s ease-in-out infinite;
+    padding: 12px 18px;
+    overflow: hidden;
+}
+
+/* Imagen del logo */
+.brand-logo-img {
+    max-width: 100%;   /* ocupa todo el ancho disponible */
+    max-height: 100%;  /* no se pasa de la altura del contenedor */
+    object-fit: contain; /* mantiene proporciones */
+    display: block;
+}
+
+
+</style>
 </body>
 
 </html>
