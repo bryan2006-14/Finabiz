@@ -1912,7 +1912,7 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
     </style>
-    <style>
+        <style>
    /* Contenedor del logo */
 .brand-logo {
     width: 260px; /* ancho para logos horizontales */
