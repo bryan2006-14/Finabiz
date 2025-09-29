@@ -1,10 +1,10 @@
 <?php
 try {
-    $host = "dpg-d3cp1eumcj7s73dpm8sg-a.oregon-postgres.render.com";
-    $port = "5432";
-    $dbname = "db_finanzas_fxs9";
-    $user = "db_finanzas_fxs9_user";
-    $password = "MzArnjJx2t87VeEF1Cr03C35Qv3M49CU";
+    $host = getenv('DB_HOST');
+    $port = getenv('DB_PORT');
+    $dbname = getenv('DB_NAME');
+    $user = getenv('DB_USER');
+    $password = getenv('DB_PASSWORD');
 
     $dsn = "pgsql:host=$host;port=$port;dbname=$dbname;";
     $connection = new PDO($dsn, $user, $password, [
