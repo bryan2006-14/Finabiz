@@ -1,7 +1,4 @@
 <?php
-// Inicia buffer de salida
-ob_start();
-
 // Inicia sesión solo si no está activa
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -24,32 +21,11 @@ $stmt->execute([':id' => $id_usuario]);
 $gastos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 if ($gastos) {
+    // Establecer idioma español para la fecha
+    setlocale(LC_TIME, 'es_ES.UTF-8', 'es_ES', 'spanish');
+
     foreach ($gastos as $gasto) {
-        // Usar IntlDateFormatter para formato en español (solución moderna)
-        try {
-            $formatter = new IntlDateFormatter(
-                'es_ES',
-                IntlDateFormatter::LONG,
-                IntlDateFormatter::NONE,
-                'America/Lima',
-                IntlDateFormatter::GREGORIAN
-            );
-            $timestamp = strtotime($gasto['fecha']);
-            $fecha = $formatter->format($timestamp);
-        } catch (Exception $e) {
-            // Fallback: usar formato manual con traducción
-            $meses = [
-                1 => 'enero', 2 => 'febrero', 3 => 'marzo', 4 => 'abril',
-                5 => 'mayo', 6 => 'junio', 7 => 'julio', 8 => 'agosto',
-                9 => 'septiembre', 10 => 'octubre', 11 => 'noviembre', 12 => 'diciembre'
-            ];
-            
-            $timestamp = strtotime($gasto['fecha']);
-            $dia = date('d', $timestamp);
-            $mes = $meses[(int)date('n', $timestamp)];
-            $anio = date('Y', $timestamp);
-            $fecha = "$dia de $mes de $anio";
-        }
+        $fecha = strftime("%d de %B de %Y", strtotime($gasto['fecha']));
 
         echo "<tr>";
         echo "<td>S/." . number_format($gasto['monto'], 2) . "</td>";
