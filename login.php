@@ -4,23 +4,21 @@ session_start();
 
 $error_message = '';
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $email = trim($_POST['email']);
-    $password = trim($_POST['password']);
+if ($_POST) {
+    $email = $_POST['email'];
+    $password = $_POST['password'];
 
     try {
-        // Preparamos la consulta segura
-        $stmt = $connection->prepare("SELECT id_usuario, nombre, password, foto_perfil 
-                                      FROM usuarios 
-                                      WHERE correo = :correo LIMIT 1");
+        // Preparamos la consulta con parámetros
+        $stmt = $connection->prepare("SELECT id_usuario, nombre, password, foto_perfil FROM usuarios WHERE correo = :correo");
         $stmt->execute([':correo' => $email]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($row) {
             $password_bd = $row['password'];
 
-            // ✅ Comparar usando password_verify
-            if (password_verify($password, $password_bd)) {
+            // ⚠️ Por ahora comparas en texto plano, pero lo ideal es usar password_hash()
+            if ($password_bd === $password) {
                 $_SESSION['nombre'] = $row['nombre'];
                 $_SESSION['id_usuario'] = $row['id_usuario'];
                 $_SESSION['foto_perfil'] = $row['foto_perfil'];
