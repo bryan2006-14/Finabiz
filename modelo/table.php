@@ -21,18 +21,26 @@ $stmt->execute([':id' => $id_usuario]);
 $gastos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 if ($gastos) {
-    // Formateador de fechas en español
-    $formatter = new IntlDateFormatter(
-        'es_ES', // idioma
-        IntlDateFormatter::LONG, // formato largo (ejemplo: 29 de septiembre de 2025)
-        IntlDateFormatter::NONE,
-        'America/Lima', // zona horaria
-        IntlDateFormatter::GREGORIAN
-    );
+    // Traducción de meses al español
+    $meses = [
+        'January' => 'enero',
+        'February' => 'febrero',
+        'March' => 'marzo',
+        'April' => 'abril',
+        'May' => 'mayo',
+        'June' => 'junio',
+        'July' => 'julio',
+        'August' => 'agosto',
+        'September' => 'septiembre',
+        'October' => 'octubre',
+        'November' => 'noviembre',
+        'December' => 'diciembre'
+    ];
 
     foreach ($gastos as $gasto) {
         $date = new DateTime($gasto['fecha']);
-        $fecha = $formatter->format($date);
+        $fecha = $date->format("d \d\e F \d\e Y"); // ejemplo: 29 de September de 2025
+        $fecha = strtr($fecha, $meses); // traducir al español
 
         echo "<tr>";
         echo "<td>S/." . number_format($gasto['monto'], 2) . "</td>";
