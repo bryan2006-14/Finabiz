@@ -230,6 +230,7 @@ if ($_POST) {
                     </div>
 
                     <div class="social-login">
+                        <!-- BOTÓN DE GOOGLE ORIGINAL FUNCIONANDO -->
                         <a href="social_login.php?provider=google" class="social-btn google-btn" role="button">
                             <i class="fab fa-google"></i>
                             <span>Continuar con Google</span>
@@ -1280,7 +1281,7 @@ if ($_POST) {
             font-size: 0.875rem;
         }
 
-        /* Social login */
+        /* Social login - RESTAURADO AL ORIGINAL */
         .social-login {
             display: flex;
             flex-direction: column;
@@ -1617,55 +1618,6 @@ if ($_POST) {
             .panel-content {
                 max-width: 500px;
                 padding: 3rem;
-            }
-        }
-
-        /* Modo oscuro del sistema */
-        @media (prefers-color-scheme: dark) {
-            .form-panel {
-                background: var(--gray-900);
-            }
-            
-            .form-header h2 {
-                color: var(--gray-100);
-            }
-            
-            .form-header p {
-                color: var(--gray-400);
-            }
-            
-            .input-container input {
-                background: var(--gray-800);
-                border-color: var(--gray-700);
-                color: var(--gray-100);
-            }
-            
-            .input-container input:focus {
-                background: var(--gray-800);
-                border-color: var(--primary);
-            }
-            
-            .social-btn {
-                background: var(--gray-800);
-                border-color: var(--gray-700);
-                color: var(--gray-300);
-            }
-            
-            .social-btn:hover {
-                background: var(--gray-700);
-            }
-            
-            .form-footer {
-                background: var(--gray-800);
-                border-color: var(--gray-700);
-            }
-            
-            .form-footer p {
-                color: var(--gray-400);
-            }
-            
-            .footer-links a {
-                color: var(--gray-400);
             }
         }
 
