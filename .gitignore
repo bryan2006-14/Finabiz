@@ -1,5 +1,6 @@
 # Ignorar dependencias de PHP
 /vendor/
+/vendor
 
 # Archivos temporales o de logs
 *.log
