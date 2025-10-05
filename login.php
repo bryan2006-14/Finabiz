@@ -230,10 +230,10 @@ if ($_POST) {
                     </div>
 
                     <div class="social-login">
-                        <a href="social_login.php?provider=google" class="social-btn google-btn" role="button">
+                        <button type="button" class="social-btn google-btn">
                             <i class="fab fa-google"></i>
                             <span>Continuar con Google</span>
-                        </a>
+                        </button>
                     </div>
 
                     <div class="signup-link">
@@ -1280,7 +1280,7 @@ if ($_POST) {
             font-size: 0.875rem;
         }
 
-        /* Social login */
+        /* Social login - CAMBIADO A BOTÓN */
         .social-login {
             display: flex;
             flex-direction: column;
@@ -1298,21 +1298,35 @@ if ($_POST) {
             background: white;
             color: var(--gray-700);
             font-weight: 500;
-            text-decoration: none;
+            cursor: pointer;
             transition: var(--transition);
             position: relative;
             overflow: hidden;
+            width: 100%;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
         .social-btn:hover {
-            border-color: var(--gray-300);
             background: var(--gray-50);
             transform: translateY(-2px);
             box-shadow: var(--shadow-md);
         }
 
+        .google-btn {
+            background: white;
+            color: var(--gray-700);
+            border: 1px solid var(--gray-300);
+        }
+
+        .google-btn:hover {
+            background: var(--gray-50);
+            border-color: var(--gray-400);
+        }
+
         .google-btn i {
             font-size: 1.25rem;
+            color: #db4437;
         }
 
         .signup-link {
@@ -1617,55 +1631,6 @@ if ($_POST) {
             .panel-content {
                 max-width: 500px;
                 padding: 3rem;
-            }
-        }
-
-        /* Modo oscuro del sistema */
-        @media (prefers-color-scheme: dark) {
-            .form-panel {
-                background: var(--gray-900);
-            }
-            
-            .form-header h2 {
-                color: var(--gray-100);
-            }
-            
-            .form-header p {
-                color: var(--gray-400);
-            }
-            
-            .input-container input {
-                background: var(--gray-800);
-                border-color: var(--gray-700);
-                color: var(--gray-100);
-            }
-            
-            .input-container input:focus {
-                background: var(--gray-800);
-                border-color: var(--primary);
-            }
-            
-            .social-btn {
-                background: var(--gray-800);
-                border-color: var(--gray-700);
-                color: var(--gray-300);
-            }
-            
-            .social-btn:hover {
-                background: var(--gray-700);
-            }
-            
-            .form-footer {
-                background: var(--gray-800);
-                border-color: var(--gray-700);
-            }
-            
-            .form-footer p {
-                color: var(--gray-400);
-            }
-            
-            .footer-links a {
-                color: var(--gray-400);
             }
         }
 
