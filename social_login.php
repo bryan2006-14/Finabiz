@@ -1,33 +1,41 @@
 <?php
-// Iniciar sesión si no está iniciada
+// social_login.php
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Cargar el cliente de Google desde config/oauth_config.php
-$google_client = require_once __DIR__ . '/config/oauth_config.php';
-
-// Cargar conexión a base de datos
+require_once __DIR__ . '/config/oauth_config.php';
 require_once __DIR__ . '/modelo/conexion.php';
 
-// Verificar conexión PDO
+// Asegurar conexión
 if (!isset($connection)) {
-    die("Error: La conexión PDO no se estableció. Revisa modelo/conexion.php");
+    die("Error: No se pudo establecer conexión a la base de datos.");
 }
 
-// 🚀 1️⃣ Iniciar flujo de autenticación con Google
+// 🚀 INICIO DEL LOGIN CON GOOGLE
 if (isset($_GET['provider']) && $_GET['provider'] === 'google' && !isset($_GET['code'])) {
     $auth_url = $google_client->createAuthUrl();
-    header('Location: ' . $auth_url);
+
+    // 🔍 DEBUG: Ver qué URL se está enviando a Google (para revisar redirect_uri)
+    echo "<h3>DEBUG Auth URL:</h3>";
+    echo "<pre>" . htmlspecialchars($auth_url) . "</pre>";
+    echo "<h4>redirect_uri que se está enviando:</h4>";
+    echo "<pre>" . htmlspecialchars($google_client->getRedirectUri()) . "</pre>";
+    echo "<p>Si esto no coincide EXACTAMENTE con lo que está en tu consola de Google, causará error 400.</p>";
     exit;
+
+    // Cuando todo funcione, reemplaza lo anterior por:
+    // header('Location: ' . $auth_url);
+    // exit;
 }
 
-// 🚀 2️⃣ Callback de Google (cuando devuelve el "code")
+// 🚀 CALLBACK DESDE GOOGLE (después del login)
 if (isset($_GET['code'])) {
     try {
         $token = $google_client->fetchAccessTokenWithAuthCode($_GET['code']);
         if (isset($token['error'])) {
-            die('Error en token: ' . $token['error']);
+            die('Error obteniendo token: ' . $token['error']);
         }
 
         $google_client->setAccessToken($token);
@@ -39,8 +47,8 @@ if (isset($_GET['code'])) {
         $picture = $userInfo->picture;
         $google_id = $userInfo->id;
 
-        echo "<h4>✅ Datos de Google obtenidos correctamente:</h4>";
-        echo "Email: $email<br>Nombre: $name<br><img src='$picture' width='50'><br>";
+        echo "<h3>✅ Datos de Google obtenidos correctamente</h3>";
+        echo "Email: $email <br>Nombre: $name <br><img src='$picture' width='80'><br>";
 
         // Buscar usuario
         $stmt = $connection->prepare("SELECT id_usuario, foto_perfil FROM usuarios WHERE correo = :email");
@@ -49,43 +57,34 @@ if (isset($_GET['code'])) {
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user) {
-            // Usuario existente
             $user_id = (int)$user['id_usuario'];
+            echo "Usuario existente encontrado (ID: $user_id)<br>";
 
-            // Actualizar foto si no tiene
             if (empty($user['foto_perfil']) && $picture) {
-                $update_stmt = $connection->prepare("UPDATE usuarios SET foto_perfil = :foto, created_via_social = TRUE WHERE id_usuario = :id");
-                $update_stmt->bindParam(':foto', $picture);
-                $update_stmt->bindParam(':id', $user_id);
-                $update_stmt->execute();
+                $update = $connection->prepare("UPDATE usuarios SET foto_perfil = :foto WHERE id_usuario = :id");
+                $update->bindParam(':foto', $picture);
+                $update->bindParam(':id', $user_id);
+                $update->execute();
             }
-
         } else {
-            // Crear nuevo usuario
-            $insert_stmt = $connection->prepare("INSERT INTO usuarios (nombre, correo, foto_perfil, created_via_social) VALUES (:nombre, :email, :foto, TRUE)");
-            $insert_stmt->bindParam(':nombre', $name);
-            $insert_stmt->bindParam(':email', $email);
-            $insert_stmt->bindParam(':foto', $picture);
-            $insert_stmt->execute();
+            echo "Creando nuevo usuario...<br>";
+            $insert = $connection->prepare("INSERT INTO usuarios (nombre, correo, foto_perfil, created_via_social) VALUES (:nombre, :email, :foto, TRUE)");
+            $insert->bindParam(':nombre', $name);
+            $insert->bindParam(':email', $email);
+            $insert->bindParam(':foto', $picture);
+            $insert->execute();
             $user_id = (int)$connection->lastInsertId();
+            echo "Nuevo usuario creado (ID: $user_id)<br>";
         }
 
-        // Guardar sesión
         $_SESSION['id_usuario'] = $user_id;
         $_SESSION['nombre'] = $name;
         $_SESSION['foto_perfil'] = $picture;
         $_SESSION['google_logged_in'] = true;
 
-        // Actualizar último acceso
-        $update_access = $connection->prepare("UPDATE usuarios SET ultimo_acceso = NOW() WHERE id_usuario = :id");
-        $update_access->bindParam(':id', $user_id);
-        $update_access->execute();
-
-        echo "<h4 style='color:green'>¡Login exitoso! Redirigiendo en 3 segundos...</h4>";
+        echo "<h4 style='color: green;'>¡Login exitoso! Redirigiendo en 3 segundos...</h4>";
         echo "<script>
-            setTimeout(function() {
-                window.location.href = 'inicio.php';
-            }, 3000);
+            setTimeout(function() { window.location.href = 'inicio.php'; }, 3000);
         </script>";
         exit;
 
@@ -94,6 +93,6 @@ if (isset($_GET['code'])) {
     }
 }
 
-// 🚀 3️⃣ Si no hay parámetros → vuelve al inicio
+// Si no es ninguno de los casos anteriores
 header('Location: index.php');
 exit;
