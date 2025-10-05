@@ -8,8 +8,11 @@
     <title>Home</title>
 </head>
 <body>
-    <?php
-      require 'login.php';
-    ?>
+<?php
+// Redirige directamente al login antes de enviar cualquier HTML
+header("Location: login.php");
+exit();
+?>
+
 </body>
 </html>
