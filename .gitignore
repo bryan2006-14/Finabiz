@@ -1,12 +1,9 @@
-# Ignorar dependencias de PHP
+# Composer
 /vendor/
-/vendor
 
-# Archivos temporales o de logs
-*.log
-*.cache
-*.tmp
+
 
 # Archivos del sistema
 .DS_Store
-Thumbs.db
+.idea/
+.vscode/
