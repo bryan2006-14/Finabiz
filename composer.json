@@ -1,8 +1,17 @@
 {
-  "name": "brayan/finabiz",
-  "description": "Sistema de gestion Finabiz con login social",
-  "require": {
-    "google/apiclient": "2.12",
-    "vlucas/phpdotenv": "^5.6"
-  }
+    "name": "systemfinace/google-login",
+    "description": "Login con Google para mi app PHP",
+    "type": "project",
+    "license": "proprietary",
+    "authors": [
+        {
+            "name": "Fe73555930",
+            "email": "bdelgadollalli@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "google/apiclient": "2.0",
+        "vlucas/phpdotenv": "^5.6"
+    }
 }
