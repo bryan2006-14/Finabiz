@@ -8,7 +8,7 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/config/oauth_config.php';
 require_once __DIR__ . '/modelo/conexion.php';
 
-// Asegurar conexión a BD
+// Asegurar conexión a la base de datos
 if (!isset($connection)) {
     die("Error: No se pudo establecer conexión a la base de datos.");
 }
@@ -20,7 +20,7 @@ if (isset($_GET['provider']) && $_GET['provider'] === 'google' && !isset($_GET['
     exit;
 }
 
-// 🚀 2. CALLBACK DESDE GOOGLE
+// 🚀 2. CALLBACK DESDE GOOGLE (después del login)
 if (isset($_GET['code'])) {
     try {
         $token = $google_client->fetchAccessTokenWithAuthCode($_GET['code']);
@@ -35,7 +35,13 @@ if (isset($_GET['code'])) {
 
         $email = $userInfo->email;
         $name = $userInfo->name;
-        $picture = $userInfo->picture;
+
+        // 📸 Si no tiene imagen, generamos un avatar con inicial
+        $picture = $userInfo->picture ?? '';
+        if (empty($picture)) {
+            $nameEncoded = urlencode($name ?: 'Usuario');
+            $picture = "https://ui-avatars.com/api/?name={$nameEncoded}&background=0D8ABC&color=fff&size=128";
+        }
 
         // 🚨 Verificar si el usuario ya existe
         $stmt = $connection->prepare("SELECT id_usuario, foto_perfil FROM usuarios WHERE correo = :email");
@@ -56,7 +62,10 @@ if (isset($_GET['code'])) {
             }
         } else {
             // 🆕 Crear nuevo usuario
-            $insert = $connection->prepare("INSERT INTO usuarios (nombre, correo, foto_perfil, created_via_social) VALUES (:nombre, :email, :foto, TRUE)");
+            $insert = $connection->prepare("
+                INSERT INTO usuarios (nombre, correo, foto_perfil, created_via_social) 
+                VALUES (:nombre, :email, :foto, TRUE)
+            ");
             $insert->bindParam(':nombre', $name);
             $insert->bindParam(':email', $email);
             $insert->bindParam(':foto', $picture);
