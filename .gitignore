@@ -1,0 +1,11 @@
+# Ignorar dependencias de PHP
+/vendor/
+
+# Archivos temporales o de logs
+*.log
+*.cache
+*.tmp
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
