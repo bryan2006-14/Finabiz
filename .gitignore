@@ -1,6 +1,7 @@
-# Composer
-/vendor/
+/vendor
 /.env
+/.env.local
+composer.lock
 
 
 
