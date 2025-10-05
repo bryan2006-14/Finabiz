@@ -1,72 +1,85 @@
 <?php
 // social_login.php
-// Si no hay 'code' mostramos el link para iniciar login
-$client_id     = getenv('GOOGLE_CLIENT_ID');
-$client_secret = getenv('GOOGLE_CLIENT_SECRET');
-$redirect_uri  = getenv('GOOGLE_REDIRECT_URI');
 
-if (!$client_id || !$client_secret || !$redirect_uri) {
-    http_response_code(500);
-    echo "Faltan variables de entorno. Revisa GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET y GOOGLE_REDIRECT_URI.";
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+require_once __DIR__ . '/config/oauth_config.php';
+require_once __DIR__ . '/modelo/conexion.php';
+
+// Asegurar conexión a BD
+if (!isset($connection)) {
+    die("Error: No se pudo establecer conexión a la base de datos.");
+}
+
+// 🚀 1. INICIAR LOGIN CON GOOGLE
+if (isset($_GET['provider']) && $_GET['provider'] === 'google' && !isset($_GET['code'])) {
+    $auth_url = $google_client->createAuthUrl();
+    header('Location: ' . $auth_url);
     exit;
 }
 
-if (!isset($_GET['code'])) {
-    // Generar URL de autorización
-    $scope = urlencode('email profile');
-    $auth_url = "https://accounts.google.com/o/oauth2/v2/auth"
-        . "?response_type=code"
-        . "&client_id=" . urlencode($client_id)
-        . "&redirect_uri=" . urlencode($redirect_uri)
-        . "&scope=" . $scope
-        . "&access_type=online"
-        . "&prompt=consent";
-    echo "<a href='$auth_url'>Iniciar sesión con Google</a>";
-    exit;
+// 🚀 2. CALLBACK DESDE GOOGLE
+if (isset($_GET['code'])) {
+    try {
+        $token = $google_client->fetchAccessTokenWithAuthCode($_GET['code']);
+
+        if (isset($token['error'])) {
+            die('Error obteniendo token: ' . htmlspecialchars($token['error']));
+        }
+
+        $google_client->setAccessToken($token);
+        $oauth2 = new Google_Service_Oauth2($google_client);
+        $userInfo = $oauth2->userinfo->get();
+
+        $email = $userInfo->email;
+        $name = $userInfo->name;
+        $picture = $userInfo->picture;
+
+        // 🚨 Verificar si el usuario ya existe
+        $stmt = $connection->prepare("SELECT id_usuario, foto_perfil FROM usuarios WHERE correo = :email");
+        $stmt->bindParam(':email', $email);
+        $stmt->execute();
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($user) {
+            // ✅ Usuario existente
+            $user_id = (int)$user['id_usuario'];
+
+            // Actualizar foto si está vacía
+            if (empty($user['foto_perfil']) && $picture) {
+                $update = $connection->prepare("UPDATE usuarios SET foto_perfil = :foto WHERE id_usuario = :id");
+                $update->bindParam(':foto', $picture);
+                $update->bindParam(':id', $user_id);
+                $update->execute();
+            }
+        } else {
+            // 🆕 Crear nuevo usuario
+            $insert = $connection->prepare("INSERT INTO usuarios (nombre, correo, foto_perfil, created_via_social) VALUES (:nombre, :email, :foto, TRUE)");
+            $insert->bindParam(':nombre', $name);
+            $insert->bindParam(':email', $email);
+            $insert->bindParam(':foto', $picture);
+            $insert->execute();
+            $user_id = (int)$connection->lastInsertId();
+        }
+
+        // ✅ Guardar sesión
+        $_SESSION['id_usuario'] = $user_id;
+        $_SESSION['nombre'] = $name;
+        $_SESSION['foto_perfil'] = $picture;
+        $_SESSION['google_logged_in'] = true;
+
+        // 🔁 Redirigir a inicio.php
+        header('Location: inicio.php');
+        exit;
+
+    } catch (Exception $e) {
+        die('Error en el proceso: ' . htmlspecialchars($e->getMessage()));
+    }
 }
 
-// Si llegó 'code' -> intercambiar por token
-$code = $_GET['code'];
-$token_endpoint = "https://oauth2.googleapis.com/token";
-
-$post = http_build_query([
-    'code' => $code,
-    'client_id' => $client_id,
-    'client_secret' => $client_secret,
-    'redirect_uri' => $redirect_uri,
-    'grant_type' => 'authorization_code'
-]);
-
-$ch = curl_init($token_endpoint);
-curl_setopt($ch, CURLOPT_POST, true);
-curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/x-www-form-urlencoded']);
-$res = curl_exec($ch);
-if ($res === false) {
-    echo "Curl error: " . curl_error($ch);
-    exit;
-}
-curl_close($ch);
-
-$token = json_decode($res, true);
-if (isset($token['error'])) {
-    echo "Token error: " . htmlspecialchars(json_encode($token));
-    exit;
-}
-
-$access_token = $token['access_token'] ?? null;
-if (!$access_token) {
-    echo "No se obtuvo access_token.";
-    exit;
-}
-
-// Obtener info del usuario
-$userinfo = file_get_contents("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" . urlencode($access_token));
-$user = json_decode($userinfo, true);
-
-// Aquí ya tienes datos del usuario: id, email, name, picture...
-echo "<h3>Usuario</h3>";
-echo "<pre>" . htmlspecialchars(print_r($user, true)) . "</pre>";
-
-// TODO: iniciar sesión en tu app, buscar/crear usuario en DB, etc.
+// 🚨 Si no aplica ninguna condición, redirigir al index
+header('Location: index.php');
+exit;
+?>
