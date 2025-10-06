@@ -37,6 +37,11 @@ function getTotalGasto($connection, $idUsuario) {
 $ingresoTotal = getTotalIngreso($connection, $idUsuario);
 $gastoTotal   = getTotalGasto($connection, $idUsuario);
 $balance      = floatval($ingresoTotal) - floatval($gastoTotal);
+
+// 🔹 SOLUCIÓN: Eliminar las líneas problemáticas de ComparativaAnonima
+// $comparativa = new ComparativaAnonima();
+// $stats = $comparativa->getStatsComparativa($_SESSION['id_usuario']);
+
 ?>
 
 <!DOCTYPE html>

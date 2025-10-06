@@ -2,20 +2,139 @@
 session_start();
 if (!isset($_SESSION['id_usuario'])) {
     header("Location:index.php");
+    exit();
 }
+
 $nombre = $_SESSION['nombre'];
 $fotoPerfil = $_SESSION['foto_perfil'];
 $rutaFotoPerfil = "fotos/" . $fotoPerfil;
-// Verificar si la imagen existe, usar una por defecto si no
 $rutaDefault = "recursos/img/default-avatar.png";
 $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
     ? "fotos/" . $fotoPerfil
     : $rutaDefault;
+
+// Configuración de base de datos PostgreSQL
+$host = "dpg-d3cp1eumcj7s73dpm8sg-a.oregon-postgres.render.com"; 
+$port = "5432"; 
+$dbname = "db_finanzas_fxs9"; 
+$user = "db_finanzas_fxs9_user"; 
+$password = "MzArnjJx2t87VeEF1Cr03C35Qv3M49CU"; 
+
+// Función para conectar a PostgreSQL de forma segura
+function conectarPostgreSQL($host, $port, $dbname, $user, $password) {
+    try {
+        $conexion = @pg_connect("host=$host port=$port dbname=$dbname user=$user password=$password");
+        return $conexion;
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+// Procesar formularios de metas
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $conexion = conectarPostgreSQL($host, $port, $dbname, $user, $password);
+    
+    if ($conexion) {
+        $id_usuario = $_SESSION['id_usuario'];
+        
+        // Crear nueva meta
+        if (isset($_POST['crear_meta'])) {
+            $nombre_meta = pg_escape_string($conexion, $_POST['nombre_meta']);
+            $descripcion = pg_escape_string($conexion, $_POST['descripcion']);
+            $meta_total = floatval($_POST['meta_total']);
+            $icono = pg_escape_string($conexion, $_POST['icono']);
+            $fecha_objetivo = !empty($_POST['fecha_objetivo']) ? $_POST['fecha_objetivo'] : null;
+            
+            $sql = "INSERT INTO metas (id_usuario, nombre_meta, descripcion, meta_total, icono, fecha_objetivo) 
+                    VALUES ($1, $2, $3, $4, $5, $6)";
+            $resultado = pg_query_params($conexion, $sql, array(
+                $id_usuario, $nombre_meta, $descripcion, $meta_total, $icono, $fecha_objetivo
+            ));
+            
+            if ($resultado) {
+                $_SESSION['mensaje_exito'] = "Meta creada exitosamente";
+            } else {
+                $_SESSION['mensaje_error'] = "Error al crear la meta";
+            }
+        }
+        
+        // Agregar monto a meta
+        if (isset($_POST['agregar_monto'])) {
+            $id_meta = intval($_POST['id_meta']);
+            $monto_agregar = floatval($_POST['monto_agregar']);
+            
+            $sql = "UPDATE metas SET monto_actual = monto_actual + $1 WHERE id_meta = $2 AND id_usuario = $3";
+            $resultado = pg_query_params($conexion, $sql, array($monto_agregar, $id_meta, $id_usuario));
+            
+            if ($resultado) {
+                $_SESSION['mensaje_exito'] = "Monto agregado exitosamente";
+                
+                // Verificar si la meta se completó
+                $sql_check = "SELECT monto_actual, meta_total FROM metas WHERE id_meta = $1";
+                $result_check = pg_query_params($conexion, $sql_check, array($id_meta));
+                if ($result_check && $meta = pg_fetch_assoc($result_check)) {
+                    if ($meta['monto_actual'] >= $meta['meta_total']) {
+                        $sql_complete = "UPDATE metas SET estado = 'completada' WHERE id_meta = $1";
+                        pg_query_params($conexion, $sql_complete, array($id_meta));
+                        
+                        // Crear logro por meta completada
+                        $sql_logro = "INSERT INTO logros (id_usuario, tipo_logro, mensaje, icono) 
+                                     VALUES ($1, 'meta_completada', '¡Felicidades! Completaste una meta de ahorro', '🎯')";
+                        pg_query_params($conexion, $sql_logro, array($id_usuario));
+                    }
+                }
+            } else {
+                $_SESSION['mensaje_error'] = "Error al agregar monto";
+            }
+        }
+        
+        // Editar meta
+        if (isset($_POST['editar_meta'])) {
+            $id_meta = intval($_POST['id_meta']);
+            $nombre_meta = pg_escape_string($conexion, $_POST['nombre_meta']);
+            $descripcion = pg_escape_string($conexion, $_POST['descripcion']);
+            $meta_total = floatval($_POST['meta_total']);
+            $icono = pg_escape_string($conexion, $_POST['icono']);
+            $fecha_objetivo = !empty($_POST['fecha_objetivo']) ? $_POST['fecha_objetivo'] : null;
+            
+            $sql = "UPDATE metas SET nombre_meta = $1, descripcion = $2, meta_total = $3, icono = $4, fecha_objetivo = $5 
+                    WHERE id_meta = $6 AND id_usuario = $7";
+            $resultado = pg_query_params($conexion, $sql, array(
+                $nombre_meta, $descripcion, $meta_total, $icono, $fecha_objetivo, $id_meta, $id_usuario
+            ));
+            
+            if ($resultado) {
+                $_SESSION['mensaje_exito'] = "Meta actualizada exitosamente";
+            } else {
+                $_SESSION['mensaje_error'] = "Error al actualizar la meta";
+            }
+        }
+        
+        // Eliminar meta
+        if (isset($_POST['eliminar_meta'])) {
+            $id_meta = intval($_POST['id_meta']);
+            
+            $sql = "DELETE FROM metas WHERE id_meta = $1 AND id_usuario = $2";
+            $resultado = pg_query_params($conexion, $sql, array($id_meta, $id_usuario));
+            
+            if ($resultado) {
+                $_SESSION['mensaje_exito'] = "Meta eliminada exitosamente";
+            } else {
+                $_SESSION['mensaje_error'] = "Error al eliminar la meta";
+            }
+        }
+        
+        pg_close($conexion);
+        
+        // Redirigir para evitar reenvío del formulario
+        header("Location: " . $_SERVER['PHP_SELF']);
+        exit();
+    }
+}
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -25,7 +144,6 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
     <link rel="stylesheet" href="css/inicio/calculadora.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -36,9 +154,9 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
 <body>
     <!-- Barra de navegación lateral -->
     <nav class="sidebar">
-<div class="brand-logo">
-    <img src="logo_Finabiz.png" alt="Finabiz Logo" class="brand-logo-img">
-</div>
+        <div class="brand-logo">
+            <img src="logo_Finabiz.png" alt="Finabiz Logo" class="brand-logo-img">
+        </div>
 
         <div class="nav-links">
             <div class="nav-section">
@@ -89,9 +207,9 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
         <div class="header">
             <h1 class="page-title">Panel de Control</h1>
             <div class="user-info">
-                <span class="user-name"><?php echo $nombre; ?></span>
+                <span class="user-name"><?php echo htmlspecialchars($nombre); ?></span>
                 <div class="user-avatar">
-                    <img src="<?php echo $rutaFotoPerfil; ?>" alt="Foto de perfil">
+                    <img src="<?php echo htmlspecialchars($rutaFotoPerfil); ?>" alt="Foto de perfil">
                 </div>
                 <a href="modelo/logout.php" class="logout-btn">
                     <i class="fas fa-sign-out-alt"></i>
@@ -99,10 +217,157 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
             </div>
         </div>
 
+        <!-- Mensajes de éxito/error -->
+        <?php if (isset($_SESSION['mensaje_exito'])): ?>
+            <div class="alert alert-success alert-dismissible fade show" role="alert" style="margin: 1rem 0;">
+                <?php echo $_SESSION['mensaje_exito']; ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            <?php unset($_SESSION['mensaje_exito']); ?>
+        <?php endif; ?>
+
+        <?php if (isset($_SESSION['mensaje_error'])): ?>
+            <div class="alert alert-danger alert-dismissible fade show" role="alert" style="margin: 1rem 0;">
+                <?php echo $_SESSION['mensaje_error']; ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            <?php unset($_SESSION['mensaje_error']); ?>
+        <?php endif; ?>
+
         <!-- Welcome Banner -->
         <div class="welcome-banner">
             <i class="fas fa-hand-wave"></i>
-            <div class="welcome-text">¡Bienvenido de nuevo! <span><?php echo $nombre; ?></span></div>
+            <div class="welcome-text">¡Bienvenido de nuevo! <span><?php echo htmlspecialchars($nombre); ?></span></div>
+        </div>
+
+        <!-- Sección de Logros y Metas -->
+        <div class="goals-achievements-section" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+            
+            <!-- Logros -->
+            <div class="achievements-card" style="background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">🏆 Tus Logros</h3>
+                </div>
+                <div id="logros-container">
+                    <?php
+                    $conexion_logros = conectarPostgreSQL($host, $port, $dbname, $user, $password);
+                    
+                    if ($conexion_logros) {
+                        $id_usuario = $_SESSION['id_usuario'];
+                        $sql = "SELECT * FROM logros WHERE id_usuario = $1 ORDER BY fecha_obtenido DESC LIMIT 5";
+                        $resultado = @pg_query_params($conexion_logros, $sql, array($id_usuario));
+                        
+                        if ($resultado && pg_num_rows($resultado) > 0) {
+                            while ($logro = pg_fetch_assoc($resultado)) {
+                                $fecha = date('d/m/Y', strtotime($logro['fecha_obtenido']));
+                                $esNuevo = !$logro['visto'];
+                                $bgColor = $esNuevo ? '#fef3c7' : '#f3f4f6';
+                                $borderColor = $esNuevo ? '#f59e0b' : '#4f46e5';
+                                
+                                echo "
+                                <div style='background: {$bgColor}; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; border-left: 4px solid {$borderColor};'>
+                                    <div style='font-weight: 600;'>" . htmlspecialchars($logro['icono']) . " " . htmlspecialchars($logro['mensaje']) . "</div>
+                                    <div style='font-size: 0.875rem; color: #6b7280;'>{$fecha}</div>
+                                </div>";
+                            }
+                            
+                            // Marcar logros como vistos
+                            $sql_update = "UPDATE logros SET visto = TRUE WHERE id_usuario = $1";
+                            @pg_query_params($conexion_logros, $sql_update, array($id_usuario));
+                        } else {
+                            echo "
+                            <div style='text-align: center; padding: 3rem 1rem; color: #9ca3af;'>
+                                <i class='fas fa-trophy' style='font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;'></i>
+                                <p>Comienza a usar la app<br>para desbloquear logros</p>
+                            </div>";
+                        }
+                        
+                        pg_close($conexion_logros);
+                    } else {
+                        echo "
+                        <div style='text-align: center; padding: 2rem; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;'>
+                            <i class='fas fa-exclamation-triangle' style='font-size: 2rem; color: #f59e0b; margin-bottom: 0.5rem;'></i>
+                            <p style='color: #92400e; margin: 0; font-weight: 500;'>No se pudo conectar a la base de datos</p>
+                        </div>";
+                    }
+                    ?>
+                </div>
+            </div>
+            
+            <!-- Metas -->
+            <div class="goals-card" style="background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">🎯 Tus Metas</h3>
+                    <button class="add-btn" onclick="abrirModalMeta()" style="background: #4f46e5; color: white; border: none; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; transition: all 0.3s ease;">
+                        <i class="fas fa-plus"></i> Nueva Meta
+                    </button>
+                </div>
+                <div id="metas-container">
+                    <?php
+                    $conexion_metas = conectarPostgreSQL($host, $port, $dbname, $user, $password);
+                    
+                    if ($conexion_metas) {
+                        $id_usuario = $_SESSION['id_usuario'];
+                        $sql = "SELECT * FROM metas WHERE id_usuario = $1 AND estado = 'activa' ORDER BY fecha_creacion DESC LIMIT 5";
+                        $resultado = @pg_query_params($conexion_metas, $sql, array($id_usuario));
+                        
+                        if ($resultado && pg_num_rows($resultado) > 0) {
+                            while ($meta = pg_fetch_assoc($resultado)) {
+                                $porcentaje = $meta['meta_total'] > 0 ? min(round(($meta['monto_actual'] / $meta['meta_total']) * 100), 100) : 0;
+                                $monto_actual = number_format($meta['monto_actual'], 2);
+                                $meta_total = number_format($meta['meta_total'], 2);
+                                $restante = $meta['meta_total'] - $meta['monto_actual'];
+                                $restante_formatted = number_format(max($restante, 0), 2);
+                                
+                                echo "
+                                <div class='meta-item' style='margin-bottom: 1.5rem; padding: 1rem; background: #f9fafb; border-radius: 8px; transition: all 0.3s ease;'>
+                                    <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;'>
+                                        <span style='font-weight: 600; display: flex; align-items: center; gap: 0.5rem;'>
+                                            " . htmlspecialchars($meta['icono']) . " " . htmlspecialchars($meta['nombre_meta']) . "
+                                        </span>
+                                        <div style='display: flex; gap: 0.5rem;'>
+                                            <button class='meta-action-btn' onclick='abrirModalAgregarMonto({$meta['id_meta']})' title='Agregar monto' style='background: none; border: none; color: #10b981; cursor: pointer; padding: 0.25rem 0.5rem; border-radius: 4px;'>
+                                                <i class='fas fa-plus-circle'></i>
+                                            </button>
+                                            <button class='meta-action-btn' onclick='abrirModalEditarMeta({$meta['id_meta']})' title='Editar' style='background: none; border: none; color: #3b82f6; cursor: pointer; padding: 0.25rem 0.5rem; border-radius: 4px;'>
+                                                <i class='fas fa-edit'></i>
+                                            </button>
+                                            <button class='meta-action-btn' onclick='confirmarEliminarMeta({$meta['id_meta']})' title='Eliminar' style='background: none; border: none; color: #ef4444; cursor: pointer; padding: 0.25rem 0.5rem; border-radius: 4px;'>
+                                                <i class='fas fa-trash'></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div style='font-size: 0.875rem; color: #6b7280; margin-bottom: 0.5rem;'>
+                                        S/{$monto_actual} / S/{$meta_total} (Restante: S/{$restante_formatted})
+                                    </div>
+                                    <div style='background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden;'>
+                                        <div style='background: linear-gradient(90deg, #10b981, #34d399); height: 100%; width: {$porcentaje}%; transition: width 0.6s ease;'></div>
+                                    </div>
+                                    <div style='display: flex; justify-content: space-between; align-items: center; margin-top: 0.25rem;'>
+                                        <span style='font-size: 0.875rem; font-weight: 600; color: #10b981;'>{$porcentaje}%</span>
+                                        " . ($meta['fecha_objetivo'] ? "<span style='font-size: 0.75rem; color: #9ca3af;'>Meta: " . date('d/m/Y', strtotime($meta['fecha_objetivo'])) . "</span>" : "") . "
+                                    </div>
+                                </div>";
+                            }
+                        } else {
+                            echo "
+                            <div style='text-align: center; padding: 3rem 1rem; color: #9ca3af;'>
+                                <i class='fas fa-bullseye' style='font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;'></i>
+                                <p>No tienes metas aún<br>¡Crea tu primera meta!</p>
+                            </div>";
+                        }
+                        
+                        pg_close($conexion_metas);
+                    } else {
+                        echo "
+                        <div style='text-align: center; padding: 2rem; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;'>
+                            <i class='fas fa-exclamation-triangle' style='font-size: 2rem; color: #f59e0b; margin-bottom: 0.5rem;'></i>
+                            <p style='color: #92400e; margin: 0; font-weight: 500;'>No se pudo conectar a la base de datos</p>
+                        </div>";
+                    }
+                    ?>
+                </div>
+            </div>
         </div>
 
         <!-- Financial Summary Cards -->
@@ -266,7 +531,140 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
         </div>
     </main>
 
-<!-- ChatBot Mejorado -->
+    <!-- Modal para Crear Meta -->
+    <div class="modal fade" id="modalMeta" tabindex="-1" aria-labelledby="modalMetaLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalMetaLabel">Crear Nueva Meta</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="">
+                    <div class="modal-body">
+                        <input type="hidden" name="crear_meta" value="1">
+                        <div class="mb-3">
+                            <label for="nombre_meta" class="form-label">Nombre de la Meta</label>
+                            <input type="text" class="form-control" id="nombre_meta" name="nombre_meta" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="descripcion" class="form-label">Descripción</label>
+                            <textarea class="form-control" id="descripcion" name="descripcion" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="meta_total" class="form-label">Monto Total (S/)</label>
+                            <input type="number" class="form-control" id="meta_total" name="meta_total" step="0.01" min="0.01" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="icono" class="form-label">Icono</label>
+                            <select class="form-select" id="icono" name="icono">
+                                <option value="🎯">🎯 Objetivo</option>
+                                <option value="💰">💰 Dinero</option>
+                                <option value="🏠">🏠 Casa</option>
+                                <option value="🚗">🚗 Auto</option>
+                                <option value="✈️">✈️ Viaje</option>
+                                <option value="🎓">🎓 Educación</option>
+                                <option value="💼">💼 Negocio</option>
+                                <option value="❤️">❤️ Salud</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="fecha_objetivo" class="form-label">Fecha Objetivo (Opcional)</label>
+                            <input type="date" class="form-control" id="fecha_objetivo" name="fecha_objetivo">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Crear Meta</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Agregar Monto -->
+    <div class="modal fade" id="modalAgregarMonto" tabindex="-1" aria-labelledby="modalAgregarMontoLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalAgregarMontoLabel">Agregar Monto a Meta</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="">
+                    <div class="modal-body">
+                        <input type="hidden" name="agregar_monto" value="1">
+                        <input type="hidden" id="id_meta_monto" name="id_meta">
+                        <div class="mb-3">
+                            <label for="monto_agregar" class="form-label">Monto a Agregar (S/)</label>
+                            <input type="number" class="form-control" id="monto_agregar" name="monto_agregar" step="0.01" min="0.01" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-success">Agregar Monto</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Editar Meta -->
+    <div class="modal fade" id="modalEditarMeta" tabindex="-1" aria-labelledby="modalEditarMetaLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalEditarMetaLabel">Editar Meta</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="">
+                    <div class="modal-body">
+                        <input type="hidden" name="editar_meta" value="1">
+                        <input type="hidden" id="id_meta_editar" name="id_meta">
+                        <div class="mb-3">
+                            <label for="nombre_meta_editar" class="form-label">Nombre de la Meta</label>
+                            <input type="text" class="form-control" id="nombre_meta_editar" name="nombre_meta" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="descripcion_editar" class="form-label">Descripción</label>
+                            <textarea class="form-control" id="descripcion_editar" name="descripcion" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="meta_total_editar" class="form-label">Monto Total (S/)</label>
+                            <input type="number" class="form-control" id="meta_total_editar" name="meta_total" step="0.01" min="0.01" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="icono_editar" class="form-label">Icono</label>
+                            <select class="form-select" id="icono_editar" name="icono">
+                                <option value="🎯">🎯 Objetivo</option>
+                                <option value="💰">💰 Dinero</option>
+                                <option value="🏠">🏠 Casa</option>
+                                <option value="🚗">🚗 Auto</option>
+                                <option value="✈️">✈️ Viaje</option>
+                                <option value="🎓">🎓 Educación</option>
+                                <option value="💼">💼 Negocio</option>
+                                <option value="❤️">❤️ Salud</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="fecha_objetivo_editar" class="form-label">Fecha Objetivo (Opcional)</label>
+                            <input type="date" class="form-control" id="fecha_objetivo_editar" name="fecha_objetivo">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Actualizar Meta</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulario oculto para eliminar meta -->
+    <form id="formEliminarMeta" method="POST" action="" style="display: none;">
+        <input type="hidden" name="eliminar_meta" value="1">
+        <input type="hidden" id="id_meta_eliminar" name="id_meta">
+    </form>
+
+<!-- ChatBot -->
 <div id="chatbot-container" class="chatbot-container">
     <div class="chatbot-header">
         <div class="bot-info">
@@ -330,22 +728,22 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
     <span class="notification">1</span>
 </div>
 
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
-    // Variables globales
     let chatVisible = false;
     let isTyping = false;
     let isExpanded = false;
     let typingInterval = null;
     let currentChart = null;
 
-    // Inicializar cuando carga la página
     document.addEventListener('DOMContentLoaded', function() {
         initializeChart();
         initializeChat();
         showWelcomeMessage();
     });
 
-    // Inicializar gráfico
     function initializeChart() {
         const ctx = document.getElementById('financialChart').getContext('2d');
         currentChart = new Chart(ctx, {
@@ -369,9 +767,7 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
         });
     }
 
-    // Inicializar chat
     function initializeChat() {
-        // Event listeners
         document.getElementById('chat-fab').addEventListener('click', toggleChat);
         document.getElementById('minimize-chat').addEventListener('click', minimizeChat);
         document.getElementById('expand-chat').addEventListener('click', expandChat);
@@ -466,22 +862,18 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
         
         if (!message) return;
         
-        // Ocultar sugerencias
         document.querySelector('.chat-suggestions').style.display = 'none';
         
         addUserMessage(message);
         input.value = '';
         
-        // Deshabilitar entrada mientras el bot responde
         input.disabled = true;
         isTyping = true;
         
-        // Mostrar botón de detener
         document.getElementById('stop-btn').style.display = 'block';
         
         showTypingIndicator();
         
-        // Simular respuesta del bot después de un breve retraso
         setTimeout(() => {
             hideTypingIndicator();
             const response = getBotResponse(message);
@@ -495,17 +887,13 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
             typingInterval = null;
         }
         
-        // Limpiar cualquier indicador de escritura
         hideTypingIndicator();
         
-        // Habilitar entrada
         document.getElementById('chat-input').disabled = false;
         isTyping = false;
         
-        // Ocultar botón de detener
         document.getElementById('stop-btn').style.display = 'none';
         
-        // Mostrar mensaje de interrupción
         const messagesContainer = document.getElementById('chat-messages');
         const interruptedElement = document.createElement('div');
         interruptedElement.className = 'message bot-message interrupted';
@@ -539,9 +927,8 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
         
         const textElement = messageElement.querySelector('p');
         let index = 0;
-        const typingSpeed = 30; // ms por caracter
+        const typingSpeed = 30;
         
-        // Limpiar intervalo previo si existe
         if (typingInterval) {
             clearInterval(typingInterval);
         }
@@ -555,11 +942,9 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
                 clearInterval(typingInterval);
                 typingInterval = null;
                 
-                // Habilitar entrada
                 document.getElementById('chat-input').disabled = false;
                 isTyping = false;
                 
-                // Ocultar botón de detener
                 document.getElementById('stop-btn').style.display = 'none';
             }
         }, typingSpeed);
@@ -655,10 +1040,477 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
         const messagesContainer = document.getElementById('chat-messages');
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
+
+    function changeChartType(type) {
+        document.querySelectorAll('.chart-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.closest('.chart-btn').classList.add('active');
+        
+        if (currentChart) {
+            currentChart.destroy();
+        }
+        
+        const ctx = document.getElementById('financialChart').getContext('2d');
+        currentChart = new Chart(ctx, {
+            type: type,
+            data: {
+                labels: ['Ingresos', 'Gastos', 'Ahorros'],
+                datasets: [{
+                    data: [3500, 1200, 800],
+                    backgroundColor: ['#10b981', '#ef4444', '#3b82f6'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+
+    // Funciones para metas
+    function abrirModalMeta() {
+        const modal = new bootstrap.Modal(document.getElementById('modalMeta'));
+        modal.show();
+    }
+
+    function abrirModalAgregarMonto(idMeta) {
+        document.getElementById('id_meta_monto').value = idMeta;
+        const modal = new bootstrap.Modal(document.getElementById('modalAgregarMonto'));
+        modal.show();
+    }
+
+    function abrirModalEditarMeta(idMeta) {
+        // Aquí podrías cargar los datos actuales de la meta mediante AJAX
+        // Por ahora, solo establecemos el ID
+        document.getElementById('id_meta_editar').value = idMeta;
+        const modal = new bootstrap.Modal(document.getElementById('modalEditarMeta'));
+        modal.show();
+    }
+
+    function confirmarEliminarMeta(idMeta) {
+        if (confirm('¿Estás seguro de que quieres eliminar esta meta? Esta acción no se puede deshacer.')) {
+            document.getElementById('id_meta_eliminar').value = idMeta;
+            document.getElementById('formEliminarMeta').submit();
+        }
+    }
 </script>
 
 <style>
-    /* Estilos mejorados para el chatbot */
+    :root {
+        --primary: #4f46e5;
+        --primary-light: #6366f1;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --info: #06b6d4;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-400: #9ca3af;
+        --gray-500: #6b7280;
+        --gray-600: #4b5563;
+        --gray-700: #374151;
+        --gray-800: #1f2937;
+        --gray-900: #111827;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: 'Inter', sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        color: var(--gray-800);
+    }
+
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 260px;
+        height: 100vh;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-right: 1px solid var(--gray-200);
+        padding: 2rem 0;
+        z-index: 1000;
+        overflow-y: auto;
+    }
+
+    .brand-logo {
+        width: 260px;
+        height: 110px;
+        border: none;
+        border-radius: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.5rem;
+        animation: logoFloat 4s ease-in-out infinite;
+        padding: 12px 18px;
+        overflow: hidden;
+    }
+
+    .brand-logo-img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        display: block;
+    }
+
+    .nav-section {
+        margin-bottom: 1.5rem;
+        padding: 0 1rem;
+    }
+
+    .nav-title {
+        color: var(--gray-500);
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 0.5rem;
+        padding: 0 1rem;
+    }
+
+    .nav-link {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 1rem;
+        margin: 2px 0;
+        color: var(--gray-600);
+        text-decoration: none;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        font-weight: 500;
+    }
+
+    .nav-link:hover {
+        background: var(--gray-100);
+        color: var(--gray-800);
+    }
+
+    .nav-link.active {
+        background: var(--primary);
+        color: white;
+    }
+
+    .nav-link i {
+        width: 20px;
+        font-size: 18px;
+    }
+
+    .main-content {
+        margin-left: 260px;
+        padding: 2rem;
+        min-height: 100vh;
+    }
+
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: white;
+        padding: 1.5rem 2rem;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+    }
+
+    .page-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--gray-800);
+    }
+
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .user-name {
+        font-weight: 600;
+        color: var(--gray-700);
+    }
+
+    .user-avatar img {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .logout-btn {
+        color: var(--gray-500);
+        text-decoration: none;
+        padding: 8px;
+        border-radius: 50%;
+        transition: all 0.3s ease;
+    }
+
+    .logout-btn:hover {
+        background: var(--gray-100);
+        color: var(--danger);
+    }
+
+    .welcome-banner {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .welcome-banner i {
+        font-size: 2rem;
+    }
+
+    .welcome-text {
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+
+    .welcome-text span {
+        color: #fbbf24;
+    }
+
+    .cards-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.3s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-2px);
+    }
+
+    .card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+    }
+
+    .card-income::before { background: var(--success); }
+    .card-expense::before { background: var(--danger); }
+    .card-budget::before { background: var(--primary); }
+    .card-savings::before { background: var(--warning); }
+
+    .card-content h3 {
+        color: var(--gray-500);
+        font-size: 0.875rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .amount {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--gray-800);
+        margin-bottom: 0.5rem;
+    }
+
+    .card-trend {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .trend-up {
+        color: var(--success);
+        font-weight: 600;
+    }
+
+    .trend-down {
+        color: var(--danger);
+        font-weight: 600;
+    }
+
+    .trend-text {
+        color: var(--gray-500);
+    }
+
+    .card-icon {
+        position: absolute;
+        top: 1.5rem;
+        right: 1.5rem;
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        color: white;
+        opacity: 0.8;
+    }
+
+    .card-income .card-icon { background: var(--success); }
+    .card-expense .card-icon { background: var(--danger); }
+    .card-budget .card-icon { background: var(--primary); }
+    .card-savings .card-icon { background: var(--warning); }
+
+    .chart-section {
+        background: white;
+        padding: 2rem;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .section-header h2, .section-header h3 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--gray-800);
+    }
+
+    .chart-controls {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .chart-btn {
+        background: var(--gray-100);
+        border: none;
+        padding: 0.5rem;
+        border-radius: 8px;
+        color: var(--gray-600);
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .chart-btn:hover {
+        background: var(--gray-200);
+    }
+
+    .chart-btn.active {
+        background: var(--primary);
+        color: white;
+    }
+
+    .chart-container {
+        height: 400px;
+        position: relative;
+    }
+
+    .expenses-section {
+        background: white;
+        padding: 2rem;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+    }
+
+    .expenses-grid {
+        display: grid;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .expense-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: var(--gray-50);
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .expense-item:hover {
+        background: white;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .expense-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1rem;
+    }
+
+    .expense-icon.food { background: var(--warning); }
+    .expense-icon.transport { background: var(--info); }
+    .expense-icon.entertainment { background: #8b5cf6; }
+    .expense-icon.health { background: var(--danger); }
+
+    .expense-info {
+        flex: 1;
+    }
+
+    .expense-category {
+        font-weight: 600;
+        color: var(--gray-800);
+        display: block;
+        margin-bottom: 0.25rem;
+    }
+
+    .expense-amount {
+        color: var(--gray-600);
+        font-size: 0.875rem;
+    }
+
+    .expense-bar {
+        background: var(--gray-200);
+        height: 4px;
+        border-radius: 2px;
+        margin-top: 0.5rem;
+        overflow: hidden;
+    }
+
+    .expense-fill {
+        height: 100%;
+        background: var(--primary);
+        border-radius: 2px;
+        transition: width 0.6s ease;
+    }
+
+    .expense-percentage {
+        font-weight: 600;
+        color: var(--primary);
+        font-size: 0.875rem;
+    }
+
     .chatbot-container {
         position: fixed;
         bottom: 20px;
@@ -677,7 +1529,7 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
     }
 
     .chatbot-header {
-        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
         color: white;
         padding: 1rem 1.25rem;
         border-radius: 16px 16px 0 0;
@@ -763,11 +1615,11 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
 
     .chat-suggestions {
         padding: 1rem;
-        border-bottom: 1px solid #e5e7eb;
+        border-bottom: 1px solid var(--gray-200);
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
-        background: #f9fafb;
+        background: var(--gray-50);
     }
 
     .suggestion {
@@ -780,15 +1632,15 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
         cursor: pointer;
         transition: all 0.3s ease;
         font-size: 0.875rem;
-        color: #374151;
-        border: 1px solid #e5e7eb;
+        color: var(--gray-700);
+        border: 1px solid var(--gray-200);
     }
 
     .suggestion:hover {
-        background: #4f46e5;
+        background: var(--primary);
         color: white;
         transform: translateX(2px);
-        border-color: #4f46e5;
+        border-color: var(--primary);
     }
 
     .suggestion i {
@@ -800,7 +1652,7 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
         flex: 1;
         overflow-y: auto;
         padding: 1rem;
-        background: #f9fafb;
+        background: var(--gray-50);
         display: flex;
         flex-direction: column;
         gap: 1rem;
@@ -811,12 +1663,12 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
     }
 
     .chat-messages::-webkit-scrollbar-track {
-        background: #f3f4f6;
+        background: var(--gray-100);
         border-radius: 3px;
     }
 
     .chat-messages::-webkit-scrollbar-thumb {
-        background: #d1d5db;
+        background: var(--gray-300);
         border-radius: 3px;
     }
 
@@ -857,11 +1709,11 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
         height: 100%;
         border-radius: 50%;
         object-fit: cover;
-        border: 2px solid #4f46e5;
+        border: 2px solid var(--primary);
     }
 
     .bot-message .message-avatar {
-        background: #4f46e5;
+        background: var(--primary);
         color: white;
         font-size: 0.875rem;
     }
@@ -875,7 +1727,7 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
     }
 
     .user-message .message-content {
-        background: #4f46e5;
+        background: var(--primary);
         color: white;
         border-bottom-right-radius: 4px;
     }
@@ -898,7 +1750,7 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
     }
 
     .bot-message .message-time {
-        color: #6b7280;
+        color: var(--gray-500);
     }
 
     .typing-indicator {
@@ -925,7 +1777,7 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
     .typing-dots span {
         width: 6px;
         height: 6px;
-        background: #9ca3af;
+        background: var(--gray-400);
         border-radius: 50%;
         animation: typingDot 1.4s infinite;
     }
@@ -946,12 +1798,12 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
 
     .typing-text {
         font-size: 0.75rem;
-        color: #6b7280;
+        color: var(--gray-500);
         margin-left: 0.5rem;
     }
 
     .chat-input-area {
-        border-top: 1px solid #e5e7eb;
+        border-top: 1px solid var(--gray-200);
         padding: 1rem;
         background: white;
         border-radius: 0 0 16px 16px;
@@ -961,7 +1813,7 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
         display: flex;
         gap: 0.5rem;
         align-items: center;
-        background: #f3f4f6;
+        background: var(--gray-100);
         border-radius: 20px;
         padding: 0.5rem;
     }
@@ -973,7 +1825,7 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
         padding: 0.5rem 0.75rem;
         font-size: 0.875rem;
         outline: none;
-        color: #374151;
+        color: var(--gray-800);
     }
 
     #chat-input:disabled {
@@ -982,13 +1834,13 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
     }
 
     #chat-input::placeholder {
-        color: #9ca3af;
+        color: var(--gray-500);
     }
 
     .control-button {
         background: transparent;
         border: none;
-        color: #6b7280;
+        color: var(--gray-600);
         width: 32px;
         height: 32px;
         border-radius: 50%;
@@ -1000,15 +1852,15 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
     }
 
     .stop-button {
-        color: #ef4444;
+        color: var(--danger);
     }
 
     .control-button:hover {
-        background: #e5e7eb;
+        background: var(--gray-200);
     }
 
     .send-button {
-        background: #4f46e5;
+        background: var(--primary);
         border: none;
         color: white;
         width: 36px;
@@ -1022,24 +1874,23 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
     }
 
     .send-button:hover {
-        background: #6366f1;
+        background: var(--primary-light);
         transform: scale(1.05);
     }
 
     .send-button:disabled {
-        background: #9ca3af;
+        background: var(--gray-400);
         cursor: not-allowed;
         transform: none;
     }
 
-    /* CHAT FAB */
     .chat-fab {
         position: fixed;
         bottom: 20px;
         right: 20px;
         width: 60px;
         height: 60px;
-        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
         color: white;
         border: none;
         border-radius: 50%;
@@ -1062,7 +1913,7 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
         position: absolute;
         top: -4px;
         right: -4px;
-        background: #ef4444;
+        background: var(--danger);
         color: white;
         font-size: 0.75rem;
         font-weight: 600;
@@ -1076,14 +1927,30 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
         border: 2px solid white;
     }
 
-    /* Mensaje de interrupción */
     .interrupted .message-content {
         background: #fef3c7;
         color: #92400e;
     }
 
-    /* Responsive */
+    .meta-action-btn:hover {
+        transform: scale(1.1);
+    }
+
     @media (max-width: 768px) {
+        .main-content {
+            margin-left: 0;
+            padding: 1rem;
+        }
+
+        .sidebar {
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+
+        .cards-container {
+            grid-template-columns: 1fr;
+        }
+
         .chatbot-container {
             width: calc(100vw - 40px);
             height: calc(100vh - 100px);
@@ -1091,853 +1958,27 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
             right: 20px;
             left: 20px;
         }
-        
-        .chatbot-container.expanded {
-            width: calc(100vw - 40px);
-            height: calc(100vh - 100px);
+
+        .header {
+            flex-direction: column;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .goals-achievements-section {
+            grid-template-columns: 1fr !important;
+        }
+    }
+
+    @keyframes logoFloat {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-5px);
         }
     }
 </style>
 
-    <style>
-        :root {
-            --primary: #4f46e5;
-            --primary-light: #6366f1;
-            --success: #10b981;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --info: #06b6d4;
-            --gray-50: #f9fafb;
-            --gray-100: #f3f4f6;
-            --gray-200: #e5e7eb;
-            --gray-300: #d1d5db;
-            --gray-400: #9ca3af;
-            --gray-500: #6b7280;
-            --gray-600: #4b5563;
-            --gray-700: #374151;
-            --gray-800: #1f2937;
-            --gray-900: #111827;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: var(--gray-800);
-        }
-
-        /* SIDEBAR */
-        .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 260px;
-            height: 100vh;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-right: 1px solid var(--gray-200);
-            padding: 2rem 0;
-            z-index: 1000;
-            overflow-y: auto;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 0 2rem;
-            margin-bottom: 2rem;
-        }
-
-        .logo i {
-            font-size: 2rem;
-            color: var(--primary);
-        }
-
-        .logo-text {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--gray-800);
-        }
-
-        .nav-section {
-            margin-bottom: 1.5rem;
-            padding: 0 1rem;
-        }
-
-        .nav-title {
-            color: var(--gray-500);
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            margin-bottom: 0.5rem;
-            padding: 0 1rem;
-        }
-
-        .nav-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 1rem;
-            margin: 2px 0;
-            color: var(--gray-600);
-            text-decoration: none;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-            font-weight: 500;
-        }
-
-        .nav-link:hover {
-            background: var(--gray-100);
-            color: var(--gray-800);
-        }
-
-        .nav-link.active {
-            background: var(--primary);
-            color: white;
-        }
-
-        .nav-link i {
-            width: 20px;
-            font-size: 18px;
-        }
-
-        /* MAIN CONTENT */
-        .main-content {
-            margin-left: 260px;
-            padding: 2rem;
-            min-height: 100vh;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: white;
-            padding: 1.5rem 2rem;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
-        }
-
-        .page-title {
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--gray-800);
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .user-name {
-            font-weight: 600;
-            color: var(--gray-700);
-        }
-
-        .user-avatar img {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-
-        .logout-btn {
-            color: var(--gray-500);
-            text-decoration: none;
-            padding: 8px;
-            border-radius: 50%;
-            transition: all 0.3s ease;
-        }
-
-        .logout-btn:hover {
-            background: var(--gray-100);
-            color: var(--danger);
-        }
-
-        .welcome-banner {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-            color: white;
-            padding: 2rem;
-            border-radius: 12px;
-            margin-bottom: 2rem;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .welcome-banner i {
-            font-size: 2rem;
-        }
-
-        .welcome-text {
-            font-size: 1.25rem;
-            font-weight: 600;
-        }
-
-        .welcome-text span {
-            color: #fbbf24;
-        }
-
-        /* CARDS */
-        .cards-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-        }
-
-        .card-income::before { background: var(--success); }
-        .card-expense::before { background: var(--danger); }
-        .card-budget::before { background: var(--primary); }
-        .card-savings::before { background: var(--warning); }
-
-        .card-content h3 {
-            color: var(--gray-500);
-            font-size: 0.875rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .amount {
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--gray-800);
-            margin-bottom: 0.5rem;
-        }
-
-        .card-trend {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.875rem;
-        }
-
-        .trend-up {
-            color: var(--success);
-            font-weight: 600;
-        }
-
-        .trend-down {
-            color: var(--danger);
-            font-weight: 600;
-        }
-
-        .trend-text {
-            color: var(--gray-500);
-        }
-
-        .card-icon {
-            position: absolute;
-            top: 1.5rem;
-            right: 1.5rem;
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            color: white;
-            opacity: 0.8;
-        }
-
-        .card-income .card-icon { background: var(--success); }
-        .card-expense .card-icon { background: var(--danger); }
-        .card-budget .card-icon { background: var(--primary); }
-        .card-savings .card-icon { background: var(--warning); }
-
-        /* CHART SECTION */
-        .chart-section {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
-        }
-
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .section-header h2 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--gray-800);
-        }
-
-        .chart-controls {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .chart-btn {
-            background: var(--gray-100);
-            border: none;
-            padding: 0.5rem;
-            border-radius: 8px;
-            color: var(--gray-600);
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .chart-btn:hover {
-            background: var(--gray-200);
-        }
-
-        .chart-btn.active {
-            background: var(--primary);
-            color: white;
-        }
-
-        .chart-container {
-            height: 400px;
-            position: relative;
-        }
-
-        /* EXPENSES SECTION */
-        .expenses-section {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
-        }
-
-        .section-header h3 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--gray-800);
-        }
-
-        .expenses-grid {
-            display: grid;
-            gap: 1rem;
-            margin-top: 1.5rem;
-        }
-
-        .expense-item {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            padding: 1rem;
-            background: var(--gray-50);
-            border-radius: 8px;
-        }
-
-        .expense-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1rem;
-        }
-
-        .expense-icon.food { background: var(--warning); }
-        .expense-icon.transport { background: var(--info); }
-        .expense-icon.entertainment { background: #8b5cf6; }
-        .expense-icon.health { background: var(--danger); }
-
-        .expense-info {
-            flex: 1;
-        }
-
-        .expense-category {
-            font-weight: 600;
-            color: var(--gray-800);
-            display: block;
-            margin-bottom: 0.25rem;
-        }
-
-        .expense-amount {
-            color: var(--gray-600);
-            font-size: 0.875rem;
-        }
-
-        .expense-bar {
-            background: var(--gray-200);
-            height: 4px;
-            border-radius: 2px;
-            margin-top: 0.5rem;
-            overflow: hidden;
-        }
-
-        .expense-fill {
-            height: 100%;
-            background: var(--primary);
-            border-radius: 2px;
-            transition: width 0.6s ease;
-        }
-
-        .expense-percentage {
-            font-weight: 600;
-            color: var(--primary);
-            font-size: 0.875rem;
-        }
-
-        /* CHATBOT STYLES */
-        .chatbot-container {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 350px;
-            height: 500px;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-            display: none;
-            flex-direction: column;
-            z-index: 1001;
-            opacity: 0;
-            transform: translateY(20px);
-            transition: all 0.3s ease;
-        }
-
-        .chatbot-header {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-            color: white;
-            padding: 1rem 1.25rem;
-            border-radius: 16px 16px 0 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .bot-info {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .bot-avatar {
-            width: 36px;
-            height: 36px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1rem;
-        }
-
-        .bot-details {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .bot-name {
-            font-weight: 600;
-            font-size: 0.875rem;
-        }
-
-        .bot-status {
-            font-size: 0.75rem;
-            opacity: 0.9;
-        }
-
-        .chatbot-controls {
-            display: flex;
-            gap: 0.25rem;
-        }
-
-        .control-btn {
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            color: white;
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-            font-size: 0.75rem;
-        }
-
-        .control-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        .chatbot-body {
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-        }
-
-        .chat-suggestions {
-            padding: 1rem;
-            border-bottom: 1px solid var(--gray-200);
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .suggestion {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.75rem;
-            background: var(--gray-50);
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 0.875rem;
-            color: var(--gray-700);
-        }
-
-        .suggestion:hover {
-            background: var(--primary);
-            color: white;
-            transform: translateX(2px);
-        }
-
-        .suggestion i {
-            width: 16px;
-            font-size: 0.875rem;
-        }
-
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 1rem;
-            background: var(--gray-50);
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .chat-messages::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        .chat-messages::-webkit-scrollbar-thumb {
-            background: var(--gray-300);
-            border-radius: 2px;
-        }
-
-        .message {
-            display: flex;
-            gap: 0.5rem;
-            align-items: flex-end;
-            animation: messageSlide 0.3s ease;
-        }
-
-        @keyframes messageSlide {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .user-message {
-            flex-direction: row-reverse;
-        }
-
-        .message-avatar {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .user-message .message-avatar img {
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-
-        .bot-message .message-avatar {
-            background: var(--primary);
-            color: white;
-            font-size: 0.75rem;
-        }
-
-        .message-content {
-            max-width: 75%;
-            background: white;
-            padding: 0.75rem 1rem;
-            border-radius: 12px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-        }
-
-        .user-message .message-content {
-            background: var(--primary);
-            color: white;
-            border-bottom-right-radius: 4px;
-        }
-
-        .bot-message .message-content {
-            border-bottom-left-radius: 4px;
-        }
-
-        .message-content p {
-            margin: 0;
-            font-size: 0.875rem;
-            line-height: 1.4;
-        }
-
-        .message-time {
-            font-size: 0.75rem;
-            color: rgba(255, 255, 255, 0.7);
-            margin-top: 0.25rem;
-            display: block;
-        }
-
-        .bot-message .message-time {
-            color: var(--gray-500);
-        }
-
-        .typing-indicator {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-        }
-
-        .typing-dots {
-            display: flex;
-            gap: 0.25rem;
-            padding: 0.75rem 1rem;
-            background: white;
-            border-radius: 12px 12px 12px 4px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-        }
-
-        .typing-dots span {
-            width: 6px;
-            height: 6px;
-            background: var(--gray-400);
-            border-radius: 50%;
-            animation: typingDot 1.4s infinite;
-        }
-
-        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
-        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
-
-        @keyframes typingDot {
-            0%, 60%, 100% {
-                transform: scale(1);
-                opacity: 0.5;
-            }
-            30% {
-                transform: scale(1.2);
-                opacity: 1;
-            }
-        }
-
-        .chat-input-area {
-            border-top: 1px solid var(--gray-200);
-            padding: 1rem;
-            background: white;
-            border-radius: 0 0 16px 16px;
-        }
-
-        .input-container {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-            background: var(--gray-100);
-            border-radius: 20px;
-            padding: 0.5rem;
-        }
-
-        #chat-input {
-            flex: 1;
-            border: none;
-            background: transparent;
-            padding: 0.5rem 0.75rem;
-            font-size: 0.875rem;
-            outline: none;
-            color: var(--gray-800);
-        }
-
-        #chat-input::placeholder {
-            color: var(--gray-500);
-        }
-
-        .send-button {
-            background: var(--primary);
-            border: none;
-            color: white;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-        }
-
-        .send-button:hover {
-            background: var(--primary-light);
-            transform: scale(1.05);
-        }
-
-        .send-button:disabled {
-            background: var(--gray-400);
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        /* CHAT FAB */
-        .chat-fab {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 56px;
-            height: 56px;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
-            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4);
-            transition: all 0.3s ease;
-            z-index: 1000;
-        }
-
-        .chat-fab:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(79, 70, 229, 0.5);
-        }
-
-        .notification {
-            position: absolute;
-            top: -4px;
-            right: -4px;
-            background: var(--danger);
-            color: white;
-            font-size: 0.75rem;
-            font-weight: 600;
-            padding: 0.125rem 0.375rem;
-            border-radius: 10px;
-            min-width: 18px;
-            height: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 2px solid white;
-        }
-
-        /* RESPONSIVE */
-        @media (max-width: 768px) {
-            .main-content {
-                margin-left: 0;
-                padding: 1rem;
-            }
-
-            .sidebar {
-                transform: translateX(-100%);
-                transition: transform 0.3s ease;
-            }
-
-            .cards-container {
-                grid-template-columns: 1fr;
-            }
-
-            .chatbot-container {
-                width: calc(100vw - 40px);
-                height: calc(100vh - 100px);
-                bottom: 20px;
-                right: 20px;
-                left: 20px;
-            }
-
-            .header {
-                flex-direction: column;
-                gap: 1rem;
-                align-items: flex-start;
-            }
-        }
-
-        /* ANIMATIONS */
-        .card {
-            transition: transform 0.3s ease;
-        }
-
-        .card:hover {
-            transform: translateY(-2px);
-        }
-
-        .expense-item:hover {
-            background: white;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-    </style>
-    <style>
-   /* Contenedor del logo */
-.brand-logo {
-    width: 260px; /* ancho para logos horizontales */
-    height: 110px; /* altura rectangular */
-    border: none; /* sin borde */
-    border-radius: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 1.5rem;
-    animation: logoFloat 4s ease-in-out infinite;
-    padding: 12px 18px;
-    overflow: hidden;
-}
-
-/* Imagen del logo */
-.brand-logo-img {
-    max-width: 100%;   /* ocupa todo el ancho disponible */
-    max-height: 100%;  /* no se pasa de la altura del contenedor */
-    object-fit: contain; /* mantiene proporciones */
-    display: block;
-}
-
-
-</style>
 </body>
-
 </html>
