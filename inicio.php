@@ -313,6 +313,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="welcome-text">¡Bienvenido de nuevo! <span><?php echo htmlspecialchars($nombre); ?></span></div>
         </div>
 
+        <!-- Sección de Gráfico - CORREGIDA -->
+        <div class="chart-section" style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 2rem;">
+            <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="font-size: 1.5rem; font-weight: 700; color: #1f2937; margin: 0;">Resumen Financiero</h2>
+                <div class="chart-controls" style="display: flex; gap: 0.5rem;">
+                    <button class="chart-btn active" onclick="changeChartType('doughnut')" style="background: #4f46e5; color: white; border: none; padding: 0.5rem; border-radius: 8px; cursor: pointer; transition: all 0.3s ease;">
+                        <i class="fas fa-chart-pie"></i>
+                    </button>
+                    <button class="chart-btn" onclick="changeChartType('bar')" style="background: #f3f4f6; border: none; padding: 0.5rem; border-radius: 8px; cursor: pointer; transition: all 0.3s ease;">
+                        <i class="fas fa-chart-bar"></i>
+                    </button>
+                    <button class="chart-btn" onclick="changeChartType('line')" style="background: #f3f4f6; border: none; padding: 0.5rem; border-radius: 8px; cursor: pointer; transition: all 0.3s ease;">
+                        <i class="fas fa-chart-line"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-container" style="height: 400px; position: relative;">
+                <canvas id="financialChart"></canvas>
+            </div>
+        </div>
+
         <!-- Sección de Alertas Inteligentes -->
         <?php if (!empty($alertas)): ?>
         <div class="alertas-section" style="margin-bottom: 2rem;">
@@ -354,6 +375,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
         <?php endif; ?>
 
+        <!-- Resto de tu contenido... -->
         <!-- Sección de Análisis de Hábitos -->
         <div class="habitos-section" style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 2rem;">
             <div class="section-header" style="margin-bottom: 1.5rem;">
@@ -889,7 +911,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="chat-input-area">
                 <div class="input-container">
-                    <input type="text" id="chat-input" placeholder="Escribe tu pregunta..." maxlength="500" disabled>
+                    <!-- CORREGIDO: Input habilitado -->
+                    <input type="text" id="chat-input" placeholder="Escribe tu pregunta..." maxlength="500">
                     <button id="stop-btn" class="control-button stop-button" title="Detener respuesta" style="display: none;">
                         <i class="fas fa-stop"></i>
                     </button>
@@ -917,53 +940,112 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         let typingInterval = null;
         let currentChart = null;
 
+        // Esperar a que todo el DOM esté cargado
         document.addEventListener('DOMContentLoaded', function() {
-            initializeChart();
-            initializeChat();
-            showWelcomeMessage();
+            console.log('DOM completamente cargado - Inicializando componentes');
+            
+            // Inicializar componentes con un pequeño retraso para asegurar que todo esté listo
+            setTimeout(() => {
+                initializeChart();
+                initializeChat();
+                showWelcomeMessage();
+            }, 100);
         });
 
         function initializeChart() {
-            const ctx = document.getElementById('financialChart').getContext('2d');
-            currentChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Ingresos', 'Gastos', 'Ahorros'],
-                    datasets: [{
-                        data: [3500, 1200, 800],
-                        backgroundColor: ['#10b981', '#ef4444', '#3b82f6'],
-                        borderWidth: 0,
-                        cutout: '65%'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    }
+            console.log('Inicializando gráfico...');
+            const canvas = document.getElementById('financialChart');
+            
+            if (canvas) {
+                console.log('Canvas encontrado:', canvas);
+                const ctx = canvas.getContext('2d');
+                
+                // Destruir gráfico existente si hay uno
+                if (currentChart) {
+                    currentChart.destroy();
                 }
-            });
+                
+                currentChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Ingresos', 'Gastos', 'Ahorros'],
+                        datasets: [{
+                            data: [3500, 1200, 800],
+                            backgroundColor: ['#10b981', '#ef4444', '#3b82f6'],
+                            borderWidth: 0,
+                            cutout: '65%'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { 
+                                display: false 
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = context.parsed;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = Math.round((value / total) * 100);
+                                        return `${label}: S/${value} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                console.log('Gráfico inicializado correctamente');
+            } else {
+                console.error('No se encontró el canvas para el gráfico con id "financialChart"');
+                console.log('Elementos canvas en la página:', document.querySelectorAll('canvas'));
+            }
         }
 
         function initializeChat() {
-            document.getElementById('chat-fab').addEventListener('click', toggleChat);
-            document.getElementById('minimize-chat').addEventListener('click', minimizeChat);
-            document.getElementById('expand-chat').addEventListener('click', expandChat);
-            document.getElementById('close-chat').addEventListener('click', closeChat);
-            document.getElementById('send-btn').addEventListener('click', sendMessage);
-            document.getElementById('stop-btn').addEventListener('click', stopTyping);
-            document.getElementById('chat-input').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter' && !isTyping) {
-                    sendMessage();
-                }
-            });
+            console.log('Inicializando chat...');
+            
+            const chatFab = document.getElementById('chat-fab');
+            const minimizeBtn = document.getElementById('minimize-chat');
+            const expandBtn = document.getElementById('expand-chat');
+            const closeBtn = document.getElementById('close-chat');
+            const sendBtn = document.getElementById('send-btn');
+            const stopBtn = document.getElementById('stop-btn');
+            const chatInput = document.getElementById('chat-input');
+
+            if (chatFab) {
+                chatFab.addEventListener('click', toggleChat);
+                console.log('Chat FAB inicializado');
+            } else {
+                console.error('No se encontró el chat FAB');
+            }
+
+            if (minimizeBtn) minimizeBtn.addEventListener('click', minimizeChat);
+            if (expandBtn) expandBtn.addEventListener('click', expandChat);
+            if (closeBtn) closeBtn.addEventListener('click', closeChat);
+            if (sendBtn) sendBtn.addEventListener('click', sendMessage);
+            if (stopBtn) stopBtn.addEventListener('click', stopTyping);
+            
+            if (chatInput) {
+                chatInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter' && !isTyping) {
+                        sendMessage();
+                    }
+                });
+                console.log('Input del chat inicializado - ESTÁ HABILITADO');
+            } else {
+                console.error('No se encontró el input del chat');
+            }
+
+            console.log('Chat inicializado completamente');
         }
 
         function showWelcomeMessage() {
             setTimeout(() => {
                 addBotMessage("¡Hola! 👋 Soy tu asistente financiero. Puedo ayudarte con análisis de gastos, consejos de ahorro y presupuestos. ¿En qué puedo ayudarte hoy?");
-            }, 1000);
+            }, 1500);
         }
 
         function toggleChat() {
@@ -978,6 +1060,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 setTimeout(() => {
                     container.style.opacity = '1';
                     container.style.transform = 'translateY(0)';
+                    // Enfocar el input cuando se abre el chat
+                    document.getElementById('chat-input').focus();
                 }, 10);
             } else {
                 container.style.opacity = '0';
@@ -1034,12 +1118,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         function sendMessage() {
-            if (isTyping) return;
+            if (isTyping) {
+                console.log('El bot está escribiendo, espera...');
+                return;
+            }
             
             const input = document.getElementById('chat-input');
             const message = input.value.trim();
             
-            if (!message) return;
+            if (!message) {
+                console.log('Mensaje vacío');
+                return;
+            }
             
             document.querySelector('.chat-suggestions').style.display = 'none';
             
@@ -1221,8 +1311,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         function changeChartType(type) {
-            document.querySelectorAll('.chart-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.closest('.chart-btn').classList.add('active');
+            document.querySelectorAll('.chart-btn').forEach(btn => {
+                btn.style.background = '#f3f4f6';
+                btn.style.color = '#6b7280';
+            });
+            event.target.closest('.chart-btn').style.background = '#4f46e5';
+            event.target.closest('.chart-btn').style.color = 'white';
             
             if (currentChart) {
                 currentChart.destroy();
@@ -1262,8 +1356,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         function abrirModalEditarMeta(idMeta) {
-            // Aquí podrías cargar los datos actuales de la meta mediante AJAX
-            // Por ahora, solo establecemos el ID
             document.getElementById('id_meta_editar').value = idMeta;
             const modal = new bootstrap.Modal(document.getElementById('modalEditarMeta'));
             modal.show();
@@ -1275,8 +1367,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 document.getElementById('formEliminarMeta').submit();
             }
         }
+
+        // Función de debug para verificar que todo funciona
+        function debugChat() {
+            console.log('=== DEBUG CHAT ===');
+            console.log('Chat FAB:', document.getElementById('chat-fab'));
+            console.log('Chat Container:', document.getElementById('chatbot-container'));
+            console.log('Chat Input:', document.getElementById('chat-input'));
+            console.log('Send Button:', document.getElementById('send-btn'));
+            console.log('Typing state:', isTyping);
+            console.log('Chat visible:', chatVisible);
+            console.log('Canvas found:', document.getElementById('financialChart'));
+            console.log('==================');
+        }
+
+        // Ejecutar debug al cargar
+        window.addEventListener('load', function() {
+            setTimeout(debugChat, 2000);
+        });
     </script>
 
+    <!-- Los estilos CSS se mantienen igual que en tu código original -->
     <style>
         :root {
             --primary: #4f46e5;
@@ -1557,56 +1668,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .card-expense .card-icon { background: var(--danger); }
         .card-budget .card-icon { background: var(--primary); }
         .card-savings .card-icon { background: var(--warning); }
-
-        .chart-section {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
-        }
-
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .section-header h2, .section-header h3 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--gray-800);
-        }
-
-        .chart-controls {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .chart-btn {
-            background: var(--gray-100);
-            border: none;
-            padding: 0.5rem;
-            border-radius: 8px;
-            color: var(--gray-600);
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .chart-btn:hover {
-            background: var(--gray-200);
-        }
-
-        .chart-btn.active {
-            background: var(--primary);
-            color: white;
-        }
-
-        .chart-container {
-            height: 400px;
-            position: relative;
-        }
 
         .expenses-section {
             background: white;
