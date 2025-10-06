@@ -73,7 +73,7 @@ if ($_POST) {
                         <!-- Logo con fallback en caso de error -->
                         <img src="logo_finabiz.png" alt="ControlGastos Logo" class="logo-img" onerror="this.src='icono-ic.png'; this.onerror=null;">
                     </div>
-                    <h1 class="brand-title">ControlGastos</h1>
+                    <h1 class="brand-title">Finabiz</h1>
                     <p class="brand-subtitle">Tu asistente financiero personal</p>
                 </div>
 
