@@ -20,7 +20,7 @@ $dbname = "db_finanzas_fxs9";
 $user = "db_finanzas_fxs9_user"; 
 $password = "MzArnjJx2t87VeEF1Cr03C35Qv3M49CU"; 
 
-// Función para conectar a PostgreSQL de forma segura
+// Función para conectar a PostgreSQL
 function conectarPostgreSQL($host, $port, $dbname, $user, $password) {
     try {
         $conexion = @pg_connect("host=$host port=$port dbname=$dbname user=$user password=$password");
@@ -29,6 +29,50 @@ function conectarPostgreSQL($host, $port, $dbname, $user, $password) {
         return false;
     }
 }
+
+// Incluir y usar el sistema de logros
+require_once 'modelo/logros.php';
+$conexion_logros = conectarPostgreSQL($host, $port, $dbname, $user, $password);
+
+if ($conexion_logros) {
+    $sistemaLogros = new SistemaLogros($conexion_logros);
+    
+    // Verificar logros cada vez que se carga la página
+    $sistemaLogros->verificarLogros($_SESSION['id_usuario']);
+    
+    // Obtener logros del usuario
+    $logros_usuario = $sistemaLogros->getLogrosUsuario($_SESSION['id_usuario'], 5);
+    
+    // Marcar logros como vistos después de mostrarlos
+    $sistemaLogros->marcarLogrosComoVistos($_SESSION['id_usuario']);
+}
+// Sistema de Alertas Inteligentes
+require_once 'modelo/alertas.php';
+$conexion_alertas = conectarPostgreSQL($host, $port, $dbname, $user, $password);
+
+if ($conexion_alertas) {
+    $sistemaAlertas = new AlertasInteligentes($conexion_alertas);
+    $alertas = $sistemaAlertas->generarAlertas($_SESSION['id_usuario']);
+} else {
+    $alertas = [];
+}
+
+// Sistema de Análisis de Hábitos
+require_once 'modelo/habitos.php';
+$conexion_habitos = conectarPostgreSQL($host, $port, $dbname, $user, $password);
+
+if ($conexion_habitos) {
+    $analisisHabitos = new AnalisisHabitos($conexion_habitos);
+    $habitos_semana = $analisisHabitos->getHabitosSemana($_SESSION['id_usuario']);
+    $analisis_habitos = $analisisHabitos->getAnalisisHabitos($_SESSION['id_usuario']);
+    $resumen_habitos = $analisisHabitos->getResumenHabitos($_SESSION['id_usuario']);
+} else {
+    $habitos_semana = [];
+    $analisis_habitos = [];
+    $resumen_habitos = [];
+}
+
+// ... el resto de tu código para procesar metas
 
 // Procesar formularios de metas
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -240,59 +284,195 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="welcome-text">¡Bienvenido de nuevo! <span><?php echo htmlspecialchars($nombre); ?></span></div>
         </div>
 
+<!-- Sección de Alertas Inteligentes -->
+<?php if (!empty($alertas)): ?>
+<div class="alertas-section" style="margin-bottom: 2rem;">
+    <div class="section-header">
+        <h3 style="display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fas fa-bell"></i>
+            Alertas Inteligentes
+        </h3>
+    </div>
+    
+    <div class="alertas-container">
+        <?php foreach($alertas as $alerta): ?>
+            <div class="alerta-item 
+                <?php 
+                switch($alerta['tipo']) {
+                    case 'peligro': echo 'alerta-peligro'; break;
+                    case 'advertencia': echo 'alerta-advertencia'; break;
+                    case 'exito': echo 'alerta-exito'; break;
+                    default: echo 'alerta-info';
+                }
+                ?>" 
+                style="display: flex; align-items: center; gap: 1rem; padding: 1rem; margin-bottom: 0.5rem; border-radius: 8px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                
+                <div class="alerta-icono" style="font-size: 1.5rem;">
+                    <?php echo $alerta['icono']; ?>
+                </div>
+                
+                <div class="alerta-mensaje" style="flex: 1;">
+                    <?php echo htmlspecialchars($alerta['mensaje']); ?>
+                </div>
+                
+                <button class="alerta-cerrar" onclick="this.parentElement.remove()" 
+                        style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #6b7280;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        <?php endforeach; ?>
+    </div>
+</div>
+<?php endif; ?>
+
+
+<!-- Sección de Análisis de Hábitos -->
+<div class="habitos-section" style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 2rem;">
+    <div class="section-header" style="margin-bottom: 1.5rem;">
+        <h3 style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+            <i class="fas fa-chart-line"></i>
+            Análisis de Hábitos Semanales
+        </h3>
+        <small style="color: #6b7280;">Patrones y tendencias de tu comportamiento financiero</small>
+    </div>
+    
+    <?php if (!empty($habitos_semana)): ?>
+    <!-- Gráfico de hábitos semanales -->
+    <div class="habitos-chart" style="margin-bottom: 2rem;">
+        <h4 style="margin-bottom: 1rem; color: #374151;">📊 Gastos por Día de la Semana</h4>
+        <div class="chart-bars" style="display: flex; align-items: end; gap: 0.5rem; height: 200px; padding: 1rem; background: #f8fafc; border-radius: 8px;">
+            <?php foreach($habitos_semana as $dia => $datos): 
+                $max_gasto = max(array_column($habitos_semana, 'gastos'));
+                $altura = $max_gasto > 0 ? ($datos['gastos'] / $max_gasto) * 150 : 10;
+                $color = $datos['tendencia'] > 0 ? '#ef4444' : '#10b981';
+            ?>
+            <div class="bar-container" style="display: flex; flex-direction: column; align-items: center; flex: 1;">
+                <div class="bar" style="width: 80%; background: <?php echo $color; ?>; height: <?php echo $altura; ?>px; border-radius: 4px 4px 0 0; position: relative;">
+                    <div class="bar-value" style="position: absolute; top: -25px; left: 50%; transform: translateX(-50%); font-size: 0.75rem; font-weight: 600; color: #374151;">
+                        S/<?php echo number_format($datos['gastos'], 0); ?>
+                    </div>
+                </div>
+                <div class="bar-label" style="margin-top: 0.5rem; font-weight: 600; color: #374151;">
+                    <?php echo $dia; ?>
+                </div>
+                <div class="bar-tendencia" style="font-size: 0.75rem; color: <?php echo $color; ?>;">
+                    <?php if ($datos['tendencia'] != 0): ?>
+                        <?php echo $datos['tendencia'] > 0 ? '↗' : '↘'; ?>
+                        <?php echo number_format(abs($datos['tendencia']), 1); ?>%
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    
+    <!-- Análisis de hábitos -->
+    <?php if (!empty($analisis_habitos)): ?>
+    <div class="analisis-habitos" style="margin-bottom: 2rem;">
+        <h4 style="margin-bottom: 1rem; color: #374151;">🔍 Patrones Detectados</h4>
+        <div class="analisis-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+            <?php foreach($analisis_habitos as $analisis): ?>
+                <div class="analisis-item" style="padding: 1rem; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                    <?php echo $analisis; ?>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+    
+    <!-- Resumen semanal -->
+    <?php if (!empty($resumen_habitos)): ?>
+    <div class="resumen-habitos">
+        <h4 style="margin-bottom: 1rem; color: #374151;">📈 Resumen Semanal</h4>
+        <div class="resumen-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div class="resumen-item" style="text-align: center; padding: 1rem; background: #f0fdf4; border-radius: 8px;">
+                <div style="font-size: 2rem; color: #10b981; margin-bottom: 0.5rem;">💰</div>
+                <div style="font-weight: 600; color: #374151;">Total Ingresos</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: #10b981;">
+                    S/<?php echo number_format($resumen_habitos['total_ingresos'], 2); ?>
+                </div>
+            </div>
+            
+            <div class="resumen-item" style="text-align: center; padding: 1rem; background: #fef2f2; border-radius: 8px;">
+                <div style="font-size: 2rem; color: #ef4444; margin-bottom: 0.5rem;">💸</div>
+                <div style="font-weight: 600; color: #374151;">Total Gastos</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: #ef4444;">
+                    S/<?php echo number_format($resumen_habitos['total_gastos'], 2); ?>
+                </div>
+            </div>
+            
+            <div class="resumen-item" style="text-align: center; padding: 1rem; background: #f0f9ff; border-radius: 8px;">
+                <div style="font-size: 2rem; color: #3b82f6; margin-bottom: 0.5rem;">⚖️</div>
+                <div style="font-weight: 600; color: #374151;">Balance Semanal</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: #3b82f6;">
+                    S/<?php echo number_format($resumen_habitos['balance_semanal'], 2); ?>
+                </div>
+            </div>
+            
+            <div class="resumen-item" style="text-align: center; padding: 1rem; background: #faf5ff; border-radius: 8px;">
+                <div style="font-size: 2rem; color: #8b5cf6; margin-bottom: 0.5rem;">📅</div>
+                <div style="font-weight: 600; color: #374151;">Días Activos</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: #8b5cf6;">
+                    <?php echo $resumen_habitos['dias_con_movimientos']; ?>/7
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+    
+    <?php else: ?>
+        <div style="text-align: center; padding: 2rem; color: #6b7280;">
+            <i class="fas fa-chart-line" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+            <p>No hay suficientes datos para el análisis de hábitos</p>
+            <p style="font-size: 0.875rem;">Registra ingresos y gastos para ver tus patrones</p>
+        </div>
+    <?php endif; ?>
+</div>
+
+
         <!-- Sección de Logros y Metas -->
         <div class="goals-achievements-section" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
             
-            <!-- Logros -->
-            <div class="achievements-card" style="background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                    <h3 style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">🏆 Tus Logros</h3>
-                </div>
-                <div id="logros-container">
-                    <?php
-                    $conexion_logros = conectarPostgreSQL($host, $port, $dbname, $user, $password);
-                    
-                    if ($conexion_logros) {
-                        $id_usuario = $_SESSION['id_usuario'];
-                        $sql = "SELECT * FROM logros WHERE id_usuario = $1 ORDER BY fecha_obtenido DESC LIMIT 5";
-                        $resultado = @pg_query_params($conexion_logros, $sql, array($id_usuario));
-                        
-                        if ($resultado && pg_num_rows($resultado) > 0) {
-                            while ($logro = pg_fetch_assoc($resultado)) {
-                                $fecha = date('d/m/Y', strtotime($logro['fecha_obtenido']));
-                                $esNuevo = !$logro['visto'];
-                                $bgColor = $esNuevo ? '#fef3c7' : '#f3f4f6';
-                                $borderColor = $esNuevo ? '#f59e0b' : '#4f46e5';
-                                
-                                echo "
-                                <div style='background: {$bgColor}; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; border-left: 4px solid {$borderColor};'>
-                                    <div style='font-weight: 600;'>" . htmlspecialchars($logro['icono']) . " " . htmlspecialchars($logro['mensaje']) . "</div>
-                                    <div style='font-size: 0.875rem; color: #6b7280;'>{$fecha}</div>
-                                </div>";
-                            }
-                            
-                            // Marcar logros como vistos
-                            $sql_update = "UPDATE logros SET visto = TRUE WHERE id_usuario = $1";
-                            @pg_query_params($conexion_logros, $sql_update, array($id_usuario));
-                        } else {
-                            echo "
-                            <div style='text-align: center; padding: 3rem 1rem; color: #9ca3af;'>
-                                <i class='fas fa-trophy' style='font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;'></i>
-                                <p>Comienza a usar la app<br>para desbloquear logros</p>
-                            </div>";
-                        }
-                        
-                        pg_close($conexion_logros);
-                    } else {
-                        echo "
-                        <div style='text-align: center; padding: 2rem; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;'>
-                            <i class='fas fa-exclamation-triangle' style='font-size: 2rem; color: #f59e0b; margin-bottom: 0.5rem;'></i>
-                            <p style='color: #92400e; margin: 0; font-weight: 500;'>No se pudo conectar a la base de datos</p>
-                        </div>";
-                    }
-                    ?>
-                </div>
-            </div>
+<!-- Logros -->
+<div class="achievements-card" style="background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">🏆 Tus Logros</h3>
+    </div>
+    <div id="logros-container">
+        <?php
+        if ($conexion_logros && !empty($logros_usuario)) {
+            foreach($logros_usuario as $logro) {
+                $fecha = date('d/m/Y', strtotime($logro['fecha_obtenido']));
+                $esNuevo = !$logro['visto'];
+                $bgColor = $esNuevo ? '#fef3c7' : '#f3f4f6';
+                $borderColor = $esNuevo ? '#f59e0b' : '#4f46e5';
+                
+                echo "
+                <div style='background: {$bgColor}; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; border-left: 4px solid {$borderColor};'>
+                    <div style='font-weight: 600; display: flex; align-items: center; gap: 0.5rem;'>
+                        <span>{$logro['icono']}</span>
+                        <span>{$logro['mensaje']}</span>
+                    </div>
+                    <div style='font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;'>
+                        Obtenido: {$fecha}
+                    </div>
+                </div>";
+            }
+        } else {
+            echo "
+            <div style='text-align: center; padding: 3rem 1rem; color: #9ca3af;'>
+                <i class='fas fa-trophy' style='font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;'></i>
+                <p>Comienza a usar la app<br>para desbloquear logros</p>
+            </div>";
+        }
+        
+        // Cerrar conexión de logros
+        if ($conexion_logros) {
+            pg_close($conexion_logros);
+        }
+        ?>
+    </div>
+</div>
             
             <!-- Metas -->
             <div class="goals-card" style="background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
@@ -445,26 +625,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
 
-        <!-- Gráfico principal -->
-        <div class="chart-section">
-            <div class="section-header">
-                <h2>Resumen Financiero</h2>
-                <div class="chart-controls">
-                    <button class="chart-btn active" onclick="changeChartType('doughnut')">
-                        <i class="fas fa-chart-pie"></i>
-                    </button>
-                    <button class="chart-btn" onclick="changeChartType('bar')">
-                        <i class="fas fa-chart-bar"></i>
-                    </button>
-                    <button class="chart-btn" onclick="changeChartType('line')">
-                        <i class="fas fa-chart-line"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="chart-container">
-                <canvas id="financialChart"></canvas>
-            </div>
-        </div>
 
         <!-- Análisis de gastos -->
         <div class="expenses-section">
@@ -1979,6 +2139,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 </style>
+<style>
+.alerta-peligro {
+    border-left: 4px solid #ef4444;
+    background: linear-gradient(90deg, #fef2f2, white) !important;
+}
 
+.alerta-advertencia {
+    border-left: 4px solid #f59e0b;
+    background: linear-gradient(90deg, #fffbeb, white) !important;
+}
+
+.alerta-exito {
+    border-left: 4px solid #10b981;
+    background: linear-gradient(90deg, #ecfdf5, white) !important;
+}
+
+.alerta-info {
+    border-left: 4px solid #3b82f6;
+    background: linear-gradient(90deg, #eff6ff, white) !important;
+}
+
+.alerta-item {
+    transition: all 0.3s ease;
+}
+
+.alerta-item:hover {
+    transform: translateX(5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+}
+
+.alerta-cerrar:hover {
+    color: #374151 !important;
+}
+</style>
 </body>
 </html>

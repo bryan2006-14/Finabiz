@@ -11,6 +11,17 @@ $rutaDefault = "recursos/img/default-avatar.png";
 $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
     ? "fotos/" . $fotoPerfil
     : $rutaDefault;
+
+// Después de insertar un ingreso o gasto exitosamente
+require_once 'modelo/logros.php';
+function conectarPostgreSQL($host, $port, $dbname, $user, $password) {
+    try {
+        $conexion = @pg_connect("host=$host port=$port dbname=$dbname user=$user password=$password");
+        return $conexion;
+    } catch (Exception $e) {
+        return false;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
