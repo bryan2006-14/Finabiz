@@ -7,147 +7,175 @@ class SistemaLogros {
     }
     
     public function verificarLogros($usuario_id) {
-        // Verificar cada tipo de logro disponible
+        // Obtener todos los tipos de logros de una vez
         $tipos_logros = $this->getTiposLogros();
         
+        // Obtener datos del usuario una sola vez para múltiples verificaciones
+        $datos_usuario = $this->getDatosUsuarioParaLogros($usuario_id);
+        
         foreach($tipos_logros as $tipo_logro) {
-            if($this->cumpleLogro($usuario_id, $tipo_logro['codigo'])) {
+            if($this->cumpleLogro($usuario_id, $tipo_logro['codigo'], $datos_usuario)) {
                 $this->otorgarLogro($usuario_id, $tipo_logro);
             }
         }
     }
     
-    private function getTiposLogros() {
-        $sql = "SELECT * FROM tipos_logros";
-        $result = pg_query($this->db, $sql);
-        $tipos = [];
+    private function getDatosUsuarioParaLogros($usuario_id) {
+        $datos = [];
         
-        while ($tipo = pg_fetch_assoc($result)) {
-            $tipos[] = $tipo;
-        }
+        // Obtener conteos básicos
+        $sql_conteos = "SELECT 
+            (SELECT COUNT(*) FROM ingresos WHERE id_usuario = :usuario_id) as total_ingresos,
+            (SELECT COUNT(*) FROM gastos WHERE id_usuario = :usuario_id) as total_gastos,
+            (SELECT COUNT(*) FROM metas WHERE id_usuario = :usuario_id AND estado = 'completada') as metas_completadas";
         
-        return $tipos;
+        $stmt = $this->db->prepare($sql_conteos);
+        $stmt->execute([':usuario_id' => $usuario_id]);
+        $conteos = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        $datos['total_ingresos'] = $conteos['total_ingresos'] ?? 0;
+        $datos['total_gastos'] = $conteos['total_gastos'] ?? 0;
+        $datos['metas_completadas'] = $conteos['metas_completadas'] ?? 0;
+        
+        // Obtener balances
+        $sql_balances = "SELECT 
+            (SELECT COALESCE(SUM(monto), 0) FROM ingresos WHERE id_usuario = :usuario_id) as total_ingresos_monto,
+            (SELECT COALESCE(SUM(monto), 0) FROM gastos WHERE id_usuario = :usuario_id) as total_gastos_monto";
+        
+        $stmt2 = $this->db->prepare($sql_balances);
+        $stmt2->execute([':usuario_id' => $usuario_id]);
+        $balances = $stmt2->fetch(PDO::FETCH_ASSOC);
+        
+        $datos['total_ingresos_monto'] = $balances['total_ingresos_monto'] ?? 0;
+        $datos['total_gastos_monto'] = $balances['total_gastos_monto'] ?? 0;
+        $datos['ahorro_total'] = $datos['total_ingresos_monto'] - $datos['total_gastos_monto'];
+        
+        return $datos;
     }
     
-    private function cumpleLogro($usuario_id, $codigo_logro) {
+    private function getTiposLogros() {
+        $sql = "SELECT * FROM tipos_logros";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    private function cumpleLogro($usuario_id, $codigo_logro, $datos_usuario = null) {
+        // Si no se pasaron datos, obtenerlos
+        if ($datos_usuario === null) {
+            $datos_usuario = $this->getDatosUsuarioParaLogros($usuario_id);
+        }
+        
         switch($codigo_logro) {
             case 'primer_ingreso':
-                return $this->tienePrimerIngreso($usuario_id);
+                return $datos_usuario['total_ingresos'] == 1;
+                
             case 'primer_gasto':
-                return $this->tienePrimerGasto($usuario_id);
+                return $datos_usuario['total_gastos'] == 1;
+                
             case 'ahorro_100':
-                return $this->tieneAhorro($usuario_id, 100);
+                return $datos_usuario['ahorro_total'] >= 100;
+                
             case 'ahorro_500':
-                return $this->tieneAhorro($usuario_id, 500);
+                return $datos_usuario['ahorro_total'] >= 500;
+                
             case 'ahorro_1000':
-                return $this->tieneAhorro($usuario_id, 1000);
+                return $datos_usuario['ahorro_total'] >= 1000;
+                
             case 'balance_positivo':
                 return $this->tieneBalancePositivo($usuario_id);
+                
             case 'racha_7dias':
                 return $this->tieneRacha7Dias($usuario_id);
+                
             case 'meta_completada':
-                return $this->tieneMetaCompletada($usuario_id);
+                return $datos_usuario['metas_completadas'] > 0;
+                
             case 'presupuesto_cumplido':
                 return $this->tienePresupuestoCumplido($usuario_id);
+                
             default:
                 return false;
         }
     }
     
-    private function tienePrimerIngreso($usuario_id) {
-        $sql = "SELECT COUNT(*) as total FROM ingresos WHERE id_usuario = $1";
-        $result = pg_query_params($this->db, $sql, array($usuario_id));
-        $row = pg_fetch_assoc($result);
-        return $row['total'] == 1;
-    }
-    
-    private function tienePrimerGasto($usuario_id) {
-        $sql = "SELECT COUNT(*) as total FROM gastos WHERE id_usuario = $1";
-        $result = pg_query_params($this->db, $sql, array($usuario_id));
-        $row = pg_fetch_assoc($result);
-        return $row['total'] == 1;
-    }
-    
-    private function tieneAhorro($usuario_id, $monto) {
-        // Calcular balance total (ingresos - gastos)
-        $sql_ingresos = "SELECT COALESCE(SUM(monto), 0) as total_ingresos FROM ingresos WHERE id_usuario = $1";
-        $result_ingresos = pg_query_params($this->db, $sql_ingresos, array($usuario_id));
-        $ingresos = pg_fetch_assoc($result_ingresos)['total_ingresos'];
-        
-        $sql_gastos = "SELECT COALESCE(SUM(monto), 0) as total_gastos FROM gastos WHERE id_usuario = $1";
-        $result_gastos = pg_query_params($this->db, $sql_gastos, array($usuario_id));
-        $gastos = pg_fetch_assoc($result_gastos)['total_gastos'];
-        
-        $ahorro = $ingresos - $gastos;
-        return $ahorro >= $monto;
-    }
-    
     private function tieneBalancePositivo($usuario_id) {
         $mes_actual = date('Y-m');
         
-        $sql_ingresos = "SELECT COALESCE(SUM(monto), 0) as total_ingresos FROM ingresos 
-                         WHERE id_usuario = $1 AND TO_CHAR(fecha, 'YYYY-MM') = $2";
-        $result_ingresos = pg_query_params($this->db, $sql_ingresos, array($usuario_id, $mes_actual));
-        $ingresos = pg_fetch_assoc($result_ingresos)['total_ingresos'];
+        $sql = "SELECT 
+            (SELECT COALESCE(SUM(monto), 0) FROM ingresos WHERE id_usuario = :usuario_id AND TO_CHAR(fecha, 'YYYY-MM') = :mes_actual) as ingresos_mes,
+            (SELECT COALESCE(SUM(monto), 0) FROM gastos WHERE id_usuario = :usuario_id AND TO_CHAR(fecha, 'YYYY-MM') = :mes_actual) as gastos_mes";
         
-        $sql_gastos = "SELECT COALESCE(SUM(monto), 0) as total_gastos FROM gastos 
-                       WHERE id_usuario = $1 AND TO_CHAR(fecha, 'YYYY-MM') = $2";
-        $result_gastos = pg_query_params($this->db, $sql_gastos, array($usuario_id, $mes_actual));
-        $gastos = pg_fetch_assoc($result_gastos)['total_gastos'];
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([
+            ':usuario_id' => $usuario_id,
+            ':mes_actual' => $mes_actual
+        ]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        $ingresos = $row['ingresos_mes'] ?? 0;
+        $gastos = $row['gastos_mes'] ?? 0;
         
         return ($ingresos - $gastos) > 0;
     }
     
     private function tieneRacha7Dias($usuario_id) {
-        // Verificar si ha registrado algo en los últimos 7 días consecutivos
+        // Versión optimizada de la consulta
         $sql = "SELECT COUNT(DISTINCT DATE(fecha)) as dias_consecutivos 
                 FROM (
-                    SELECT fecha FROM ingresos WHERE id_usuario = $1 
-                    UNION ALL 
-                    SELECT fecha FROM gastos WHERE id_usuario = $1
-                ) AS movimientos 
-                WHERE fecha >= CURRENT_DATE - INTERVAL '7 days'";
-        $result = pg_query_params($this->db, $sql, array($usuario_id));
-        $row = pg_fetch_assoc($result);
-        return $row['dias_consecutivos'] >= 7;
-    }
-    
-    private function tieneMetaCompletada($usuario_id) {
-        $sql = "SELECT COUNT(*) as total FROM metas WHERE id_usuario = $1 AND estado = 'completada'";
-        $result = pg_query_params($this->db, $sql, array($usuario_id));
-        $row = pg_fetch_assoc($result);
-        return $row['total'] > 0;
+                    SELECT fecha FROM ingresos WHERE id_usuario = :usuario_id AND fecha >= CURRENT_DATE - INTERVAL '7 days'
+                    UNION 
+                    SELECT fecha FROM gastos WHERE id_usuario = :usuario_id AND fecha >= CURRENT_DATE - INTERVAL '7 days'
+                ) AS movimientos";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':usuario_id' => $usuario_id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        return ($row['dias_consecutivos'] ?? 0) >= 7;
     }
     
     private function tienePresupuestoCumplido($usuario_id) {
-        // Esta es una implementación básica - puedes ajustarla según tu lógica de presupuestos
         $mes_actual = date('Y-m');
         
-        $sql_gastos = "SELECT COALESCE(SUM(monto), 0) as total_gastos FROM gastos 
-                       WHERE id_usuario = $1 AND TO_CHAR(fecha, 'YYYY-MM') = $2";
-        $result_gastos = pg_query_params($this->db, $sql_gastos, array($usuario_id, $mes_actual));
-        $gastos = pg_fetch_assoc($result_gastos)['total_gastos'];
+        $sql = "SELECT COALESCE(SUM(monto), 0) as total_gastos 
+                FROM gastos 
+                WHERE id_usuario = :usuario_id AND TO_CHAR(fecha, 'YYYY-MM') = :mes_actual";
         
-        // Supongamos que el presupuesto mensual es S/1000 (ajusta según tu lógica)
-        $presupuesto_mensual = 1000;
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([
+            ':usuario_id' => $usuario_id,
+            ':mes_actual' => $mes_actual
+        ]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        $gastos = $row['total_gastos'] ?? 0;
+        $presupuesto_mensual = 1000; // Ajusta según tu lógica
         
         return $gastos <= $presupuesto_mensual;
     }
     
     private function otorgarLogro($usuario_id, $tipo_logro) {
         // Verificar si ya tiene el logro
-        $sql_check = "SELECT id_logro FROM logros WHERE id_usuario = $1 AND tipo_logro = $2";
-        $result_check = pg_query_params($this->db, $sql_check, array($usuario_id, $tipo_logro['codigo']));
+        $sql_check = "SELECT id_logro FROM logros WHERE id_usuario = :usuario_id AND tipo_logro = :tipo_logro";
+        $stmt_check = $this->db->prepare($sql_check);
+        $stmt_check->execute([
+            ':usuario_id' => $usuario_id,
+            ':tipo_logro' => $tipo_logro['codigo']
+        ]);
         
-        if (pg_num_rows($result_check) == 0) {
+        if ($stmt_check->rowCount() == 0) {
             // Otorgar el logro
-            $sql_insert = "INSERT INTO logros (id_usuario, tipo_logro, mensaje, icono) VALUES ($1, $2, $3, $4)";
-            pg_query_params($this->db, $sql_insert, array(
-                $usuario_id, 
-                $tipo_logro['codigo'], 
-                $tipo_logro['descripcion'], 
-                $tipo_logro['icono']
-            ));
+            $sql_insert = "INSERT INTO logros (id_usuario, tipo_logro, mensaje, icono) 
+                          VALUES (:usuario_id, :tipo_logro, :mensaje, :icono)";
+            $stmt_insert = $this->db->prepare($sql_insert);
+            $stmt_insert->execute([
+                ':usuario_id' => $usuario_id,
+                ':tipo_logro' => $tipo_logro['codigo'],
+                ':mensaje' => $tipo_logro['descripcion'],
+                ':icono' => $tipo_logro['icono']
+            ]);
             
             return true;
         }
@@ -156,20 +184,19 @@ class SistemaLogros {
     }
     
     public function getLogrosUsuario($usuario_id, $limite = 5) {
-        $sql = "SELECT * FROM logros WHERE id_usuario = $1 ORDER BY fecha_obtenido DESC LIMIT $2";
-        $result = pg_query_params($this->db, $sql, array($usuario_id, $limite));
-        $logros = [];
+        $sql = "SELECT * FROM logros WHERE id_usuario = :usuario_id ORDER BY fecha_obtenido DESC LIMIT :limite";
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindValue(':usuario_id', $usuario_id, PDO::PARAM_INT);
+        $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
+        $stmt->execute();
         
-        while ($logro = pg_fetch_assoc($result)) {
-            $logros[] = $logro;
-        }
-        
-        return $logros;
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
     public function marcarLogrosComoVistos($usuario_id) {
-        $sql = "UPDATE logros SET visto = TRUE WHERE id_usuario = $1 AND visto = FALSE";
-        pg_query_params($this->db, $sql, array($usuario_id));
+        $sql = "UPDATE logros SET visto = TRUE WHERE id_usuario = :usuario_id AND visto = FALSE";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':usuario_id' => $usuario_id]);
     }
 }
 ?>

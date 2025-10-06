@@ -15,7 +15,7 @@ class AnalisisHabitos {
                 'gastos' => $this->getGastosDia($usuario_id, $dia),
                 'ingresos' => $this->getIngresosDia($usuario_id, $dia),
                 'tendencia' => $this->getTendenciaDia($usuario_id, $dia),
-                'tipo_gasto' => $this->getTipoGastoDia($usuario_id, $dia) // Cambiado de categoria_principal a tipo_gasto
+                'tipo_gasto' => $this->getTipoGastoDia($usuario_id, $dia)
             ];
         }
         
@@ -67,11 +67,17 @@ class AnalisisHabitos {
         $numero_dia = $this->getNumeroDia($dia);
         $sql = "SELECT COALESCE(SUM(monto), 0) as total 
                 FROM gastos 
-                WHERE id_usuario = $1 AND EXTRACT(DOW FROM fecha) = $2
+                WHERE id_usuario = :usuario_id AND EXTRACT(DOW FROM fecha) = :numero_dia
                 AND fecha >= CURRENT_DATE - INTERVAL '30 days'";
         
-        $result = pg_query_params($this->db, $sql, array($usuario_id, $numero_dia));
-        if ($result && $row = pg_fetch_assoc($result)) {
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([
+            ':usuario_id' => $usuario_id,
+            ':numero_dia' => $numero_dia
+        ]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($row) {
             return floatval($row['total']);
         }
         return 0;
@@ -81,11 +87,17 @@ class AnalisisHabitos {
         $numero_dia = $this->getNumeroDia($dia);
         $sql = "SELECT COALESCE(SUM(monto), 0) as total 
                 FROM ingresos 
-                WHERE id_usuario = $1 AND EXTRACT(DOW FROM fecha) = $2
+                WHERE id_usuario = :usuario_id AND EXTRACT(DOW FROM fecha) = :numero_dia
                 AND fecha >= CURRENT_DATE - INTERVAL '30 days'";
         
-        $result = pg_query_params($this->db, $sql, array($usuario_id, $numero_dia));
-        if ($result && $row = pg_fetch_assoc($result)) {
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([
+            ':usuario_id' => $usuario_id,
+            ':numero_dia' => $numero_dia
+        ]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($row) {
             return floatval($row['total']);
         }
         return 0;
@@ -99,11 +111,17 @@ class AnalisisHabitos {
                     COALESCE(SUM(CASE WHEN fecha >= CURRENT_DATE - INTERVAL '7 days' THEN monto ELSE 0 END), 0) as semana_actual,
                     COALESCE(SUM(CASE WHEN fecha >= CURRENT_DATE - INTERVAL '14 days' AND fecha < CURRENT_DATE - INTERVAL '7 days' THEN monto ELSE 0 END), 0) as semana_anterior
                 FROM gastos 
-                WHERE id_usuario = $1 AND EXTRACT(DOW FROM fecha) = $2
+                WHERE id_usuario = :usuario_id AND EXTRACT(DOW FROM fecha) = :numero_dia
                 AND fecha >= CURRENT_DATE - INTERVAL '28 days'";
         
-        $result = pg_query_params($this->db, $sql, array($usuario_id, $numero_dia));
-        if ($result && $row = pg_fetch_assoc($result)) {
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([
+            ':usuario_id' => $usuario_id,
+            ':numero_dia' => $numero_dia
+        ]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($row) {
             $semana_actual = floatval($row['semana_actual']);
             $semana_anterior = floatval($row['semana_anterior']);
             
@@ -122,11 +140,17 @@ class AnalisisHabitos {
         // Primero, verifiquemos si hay gastos en este día
         $sql_check = "SELECT COALESCE(SUM(monto), 0) as total 
                       FROM gastos 
-                      WHERE id_usuario = $1 AND EXTRACT(DOW FROM fecha) = $2
+                      WHERE id_usuario = :usuario_id AND EXTRACT(DOW FROM fecha) = :numero_dia
                       AND fecha >= CURRENT_DATE - INTERVAL '30 days'";
         
-        $result_check = pg_query_params($this->db, $sql_check, array($usuario_id, $numero_dia));
-        if ($result_check && $row = pg_fetch_assoc($result_check)) {
+        $stmt_check = $this->db->prepare($sql_check);
+        $stmt_check->execute([
+            ':usuario_id' => $usuario_id,
+            ':numero_dia' => $numero_dia
+        ]);
+        $row = $stmt_check->fetch(PDO::FETCH_ASSOC);
+        
+        if ($row) {
             $total_gastos = floatval($row['total']);
             
             // Clasificar el tipo de gasto basado en el monto

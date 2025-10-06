@@ -59,12 +59,15 @@ class AlertasInteligentes {
                     SELECT EXTRACT(YEAR FROM fecha) as año, EXTRACT(MONTH FROM fecha) as mes, 
                            SUM(monto) as total_mensual 
                     FROM gastos 
-                    WHERE id_usuario = $1 
+                    WHERE id_usuario = :usuario_id 
                     GROUP BY año, mes
                 ) as gastos_mensuales";
         
-        $result = pg_query_params($this->db, $sql, array($usuario_id));
-        if ($result && $row = pg_fetch_assoc($result)) {
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':usuario_id' => $usuario_id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($row) {
             return floatval($row['promedio']);
         }
         return 0;
@@ -74,10 +77,16 @@ class AlertasInteligentes {
         $mes_actual = date('Y-m');
         $sql = "SELECT COALESCE(SUM(monto), 0) as total 
                 FROM gastos 
-                WHERE id_usuario = $1 AND TO_CHAR(fecha, 'YYYY-MM') = $2";
+                WHERE id_usuario = :usuario_id AND TO_CHAR(fecha, 'YYYY-MM') = :mes_actual";
         
-        $result = pg_query_params($this->db, $sql, array($usuario_id, $mes_actual));
-        if ($result && $row = pg_fetch_assoc($result)) {
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([
+            ':usuario_id' => $usuario_id,
+            ':mes_actual' => $mes_actual
+        ]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($row) {
             return floatval($row['total']);
         }
         return 0;
@@ -86,24 +95,30 @@ class AlertasInteligentes {
     private function cercaDeMetaAhorro($usuario_id) {
         $sql = "SELECT nombre_meta, monto_actual, meta_total 
                 FROM metas 
-                WHERE id_usuario = $1 AND estado = 'activa' 
+                WHERE id_usuario = :usuario_id AND estado = 'activa' 
                 AND (monto_actual / meta_total) >= 0.9
                 AND (monto_actual / meta_total) < 1.0";
         
-        $result = pg_query_params($this->db, $sql, array($usuario_id));
-        return ($result && pg_num_rows($result) > 0);
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':usuario_id' => $usuario_id]);
+        
+        return $stmt->rowCount() > 0;
     }
     
     private function getBalanceActual($usuario_id) {
         // Sumar ingresos
-        $sql_ingresos = "SELECT COALESCE(SUM(monto), 0) as total FROM ingresos WHERE id_usuario = $1";
-        $result_ingresos = pg_query_params($this->db, $sql_ingresos, array($usuario_id));
-        $ingresos = $result_ingresos ? floatval(pg_fetch_assoc($result_ingresos)['total']) : 0;
+        $sql_ingresos = "SELECT COALESCE(SUM(monto), 0) as total FROM ingresos WHERE id_usuario = :usuario_id";
+        $stmt_ingresos = $this->db->prepare($sql_ingresos);
+        $stmt_ingresos->execute([':usuario_id' => $usuario_id]);
+        $ingresos_row = $stmt_ingresos->fetch(PDO::FETCH_ASSOC);
+        $ingresos = $ingresos_row ? floatval($ingresos_row['total']) : 0;
         
         // Sumar gastos
-        $sql_gastos = "SELECT COALESCE(SUM(monto), 0) as total FROM gastos WHERE id_usuario = $1";
-        $result_gastos = pg_query_params($this->db, $sql_gastos, array($usuario_id));
-        $gastos = $result_gastos ? floatval(pg_fetch_assoc($result_gastos)['total']) : 0;
+        $sql_gastos = "SELECT COALESCE(SUM(monto), 0) as total FROM gastos WHERE id_usuario = :usuario_id";
+        $stmt_gastos = $this->db->prepare($sql_gastos);
+        $stmt_gastos->execute([':usuario_id' => $usuario_id]);
+        $gastos_row = $stmt_gastos->fetch(PDO::FETCH_ASSOC);
+        $gastos = $gastos_row ? floatval($gastos_row['total']) : 0;
         
         return $ingresos - $gastos;
     }
@@ -114,9 +129,14 @@ class AlertasInteligentes {
         // Ingresos del mes actual
         $sql_actual = "SELECT COALESCE(SUM(monto), 0) as total 
                        FROM ingresos 
-                       WHERE id_usuario = $1 AND TO_CHAR(fecha, 'YYYY-MM') = $2";
-        $result_actual = pg_query_params($this->db, $sql_actual, array($usuario_id, $mes_actual));
-        $ingresos_actual = $result_actual ? floatval(pg_fetch_assoc($result_actual)['total']) : 0;
+                       WHERE id_usuario = :usuario_id AND TO_CHAR(fecha, 'YYYY-MM') = :mes_actual";
+        $stmt_actual = $this->db->prepare($sql_actual);
+        $stmt_actual->execute([
+            ':usuario_id' => $usuario_id,
+            ':mes_actual' => $mes_actual
+        ]);
+        $actual_row = $stmt_actual->fetch(PDO::FETCH_ASSOC);
+        $ingresos_actual = $actual_row ? floatval($actual_row['total']) : 0;
         
         // Promedio de ingresos de los últimos 3 meses
         $sql_promedio = "SELECT COALESCE(AVG(total_mensual), 0) as promedio 
@@ -124,13 +144,15 @@ class AlertasInteligentes {
                              SELECT EXTRACT(YEAR FROM fecha) as año, EXTRACT(MONTH FROM fecha) as mes, 
                                     SUM(monto) as total_mensual 
                              FROM ingresos 
-                             WHERE id_usuario = $1 
+                             WHERE id_usuario = :usuario_id 
                              AND fecha >= CURRENT_DATE - INTERVAL '3 months'
                              GROUP BY año, mes
                          ) as ingresos_mensuales";
         
-        $result_promedio = pg_query_params($this->db, $sql_promedio, array($usuario_id));
-        $ingresos_promedio = $result_promedio ? floatval(pg_fetch_assoc($result_promedio)['promedio']) : 0;
+        $stmt_promedio = $this->db->prepare($sql_promedio);
+        $stmt_promedio->execute([':usuario_id' => $usuario_id]);
+        $promedio_row = $stmt_promedio->fetch(PDO::FETCH_ASSOC);
+        $ingresos_promedio = $promedio_row ? floatval($promedio_row['promedio']) : 0;
         
         return ($ingresos_promedio > 0 && $ingresos_actual < ($ingresos_promedio * 0.7));
     }
