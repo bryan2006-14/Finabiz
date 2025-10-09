@@ -862,7 +862,7 @@
                 <ul class="footer-links">
                     <li><i class="fas fa-envelope"></i> info@finabiz.com</li>
                     <li><i class="fas fa-phone"></i> +51 917 590 605</li>
-                    <li><i class="fas fa-map-marker-alt"></i> Lima, Perú</li>
+                    <li><i class="fas fa-map-marker-alt"></i> Trujillo, Perú</li>
                 </ul>
             </div>
         </div>
