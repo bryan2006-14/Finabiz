@@ -448,7 +448,7 @@
             .features-grid,
             .testimonial-grid,
             .footer-content{
-                max-width:1400px;
+                max-width:1200px;
                 margin-left:auto;
                 margin-right:auto;
             }
