@@ -10,17 +10,14 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
     ? "fotos/" . $fotoPerfil
     : $rutaDefault;
 
+// Obtener el mes y año seleccionado del filtro - CORREGIDO
+$mesSeleccionado = isset($_GET['mes']) && $_GET['mes'] != '' ? $_GET['mes'] : '';
+$anioSeleccionado = isset($_GET['anio']) && $_GET['anio'] != '' ? $_GET['anio'] : '';
+
 // Después de insertar un ingreso o gasto exitosamente
 require_once 'modelo/logros.php';
-function conectarPostgreSQL($host, $port, $dbname, $user, $password) {
-    try {
-        $conexion = @pg_connect("host=$host port=$port dbname=$dbname user=$user password=$password");
-        return $conexion;
-    } catch (Exception $e) {
-        return false;
-    }
-}
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -98,8 +95,12 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
 
 /* FILTROS */
 .filters-container{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;padding:1rem;background:var(--gray-50);border-radius:8px;flex-wrap:wrap;gap:1rem}
-.filter-select{background:white;border:1px solid var(--gray-200);padding:0.5rem 1rem;border-radius:6px;color:var(--gray-700);outline:none}
+.filter-group{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.filter-label{font-weight:500;color:var(--gray-700);white-space:nowrap}
+.filter-select{background:white;border:1px solid var(--gray-200);padding:0.5rem 1rem;border-radius:6px;color:var(--gray-700);outline:none;min-width:150px}
 .filter-select:focus{border-color:var(--primary)}
+.btn-filter{background:var(--primary);color:white;border:none;padding:0.5rem 1rem;border-radius:6px;cursor:pointer;transition:all 0.3s ease}
+.btn-filter:hover{background:var(--primary-light);transform:translateY(-1px)}
 
 /* TABLA */
 .table-container{background:white;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow-x:auto}
@@ -152,6 +153,7 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
     .user-info{width:100%;justify-content:space-between}
     .section-header{flex-direction:column;align-items:flex-start}
     .filters-container{flex-direction:column;align-items:flex-start}
+    .filter-group{width:100%;justify-content:space-between}
     .content-section{padding:1.5rem}
     .summary-card{padding:1.25rem;flex-direction:column;text-align:center;gap:0.75rem}
     .summary-icon{width:50px;height:50px;font-size:1.25rem}
@@ -252,6 +254,9 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                     <i class="fas fa-calculator"></i>
                     <span>Calculadora</span>
                 </a>
+                <a href="asistente.php" class="nav-link" onclick="closeSidebarOnMobile()">
+                <i class="fas fa-robot"></i>
+                <span>Asistente IA</span>
             </div>
 
             <div class="nav-section">
@@ -260,6 +265,10 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                     <i class="fas fa-cog"></i>
                     <span>Configuración</span>
                 </a>
+                <a href="modelo/logout.php" class="nav-link">
+                <i class="fas fa-sign-out-alt"></i>
+                Cerrar Sesión
+            </a>
             </div>
         </div>
     </nav>
@@ -296,24 +305,78 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                     <i class="fas fa-hand-holding-usd"></i>
                 </div>
                 <div class="summary-content">
-                    <div class="summary-title">TOTAL DE GASTOS</div>
-                    <div class="summary-amount">- S/<?php include 'modelo/total.php'; ?></div>
+                    <div class="summary-title">TOTAL DE GASTOS <?php 
+                        if (!empty($mesSeleccionado) && !empty($anioSeleccionado)) {
+                            $meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+                            echo '(' . ucfirst($meses[intval($mesSeleccionado) - 1]) . ' ' . $anioSeleccionado . ')';
+                        } else {
+                            echo '(Todos los registros)';
+                        }
+                    ?></div>
+                    <div class="summary-amount">- S/<?php 
+                        // Pasar parámetros de mes y año al archivo total.php
+                        $_GET['mes'] = $mesSeleccionado;
+                        $_GET['anio'] = $anioSeleccionado;
+                        include 'modelo/total.php'; 
+                    ?></div>
                 </div>
             </div>
 
             <!-- Filtros -->
             <div class="filters-container">
-                <div>
-                    <span>Filtrar por categoría:</span>
+                <div class="filter-group">
+                    <span class="filter-label">Filtrar por período:</span>
+                    <form method="GET" action="" id="filterForm" class="filter-group">
+                        <select class="filter-select" name="mes" id="mesFilter">
+                            <option value="">Todos los meses</option>
+                            <option value="01" <?php echo $mesSeleccionado == '01' ? 'selected' : ''; ?>>Enero</option>
+                            <option value="02" <?php echo $mesSeleccionado == '02' ? 'selected' : ''; ?>>Febrero</option>
+                            <option value="03" <?php echo $mesSeleccionado == '03' ? 'selected' : ''; ?>>Marzo</option>
+                            <option value="04" <?php echo $mesSeleccionado == '04' ? 'selected' : ''; ?>>Abril</option>
+                            <option value="05" <?php echo $mesSeleccionado == '05' ? 'selected' : ''; ?>>Mayo</option>
+                            <option value="06" <?php echo $mesSeleccionado == '06' ? 'selected' : ''; ?>>Junio</option>
+                            <option value="07" <?php echo $mesSeleccionado == '07' ? 'selected' : ''; ?>>Julio</option>
+                            <option value="08" <?php echo $mesSeleccionado == '08' ? 'selected' : ''; ?>>Agosto</option>
+                            <option value="09" <?php echo $mesSeleccionado == '09' ? 'selected' : ''; ?>>Septiembre</option>
+                            <option value="10" <?php echo $mesSeleccionado == '10' ? 'selected' : ''; ?>>Octubre</option>
+                            <option value="11" <?php echo $mesSeleccionado == '11' ? 'selected' : ''; ?>>Noviembre</option>
+                            <option value="12" <?php echo $mesSeleccionado == '12' ? 'selected' : ''; ?>>Diciembre</option>
+                        </select>
+                        
+                        <select class="filter-select" name="anio" id="anioFilter">
+                            <option value="">Todos los años</option>
+                            <?php
+                            $currentYear = date('Y');
+                            for ($year = $currentYear; $year >= 2020; $year--) {
+                                $selected = $anioSeleccionado == $year ? 'selected' : '';
+                                echo "<option value='$year' $selected>$year</option>";
+                            }
+                            ?>
+                        </select>
+                        
+                        <button type="submit" class="btn-filter">
+                            <i class="fas fa-filter"></i>
+                            Filtrar
+                        </button>
+                        
+                        <button type="button" class="btn-filter" onclick="resetFilters()" style="background: var(--gray-500);">
+                            <i class="fas fa-redo"></i>
+                            Limpiar
+                        </button>
+                    </form>
                 </div>
-                <select class="filter-select" id="categoryFilter">
-                    <option selected disabled>Seleccionar categoría</option>
-                    <option value="1">Comida</option>
-                    <option value="2">Transporte</option>
-                    <option value="3">Vivienda</option>
-                    <option value="4">Entretenimiento</option>
-                    <option value="5">Otros</option>
-                </select>
+                
+                <div class="filter-group">
+                    <span class="filter-label">Categoría:</span>
+                    <select class="filter-select" id="categoryFilter">
+                        <option value="">Todas las categorías</option>
+                        <option value="Comida">Comida</option>
+                        <option value="Transporte">Transporte</option>
+                        <option value="Vivienda">Vivienda</option>
+                        <option value="Entretenimiento">Entretenimiento</option>
+                        <option value="Otros">Otros</option>
+                    </select>
+                </div>
             </div>
 
             <!-- Tabla de gastos -->
@@ -329,7 +392,18 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                         </tr>
                     </thead>
                     <tbody>
-                        <?php include 'modelo/table.php'; ?>
+                        <?php 
+                        // Pasar parámetros de mes y año al archivo table.php SOLO si no están vacíos
+                        if (!empty($mesSeleccionado) && !empty($anioSeleccionado)) {
+                            $_GET['mes'] = $mesSeleccionado;
+                            $_GET['anio'] = $anioSeleccionado;
+                        } else {
+                            // Si están vacíos, no pasar los parámetros para mostrar todos
+                            unset($_GET['mes']);
+                            unset($_GET['anio']);
+                        }
+                        include 'modelo/table.php'; 
+                        ?>
                     </tbody>
                 </table>
             </div>
@@ -432,12 +506,25 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                 });
             }
 
-            // Filtrar por categoría
+            // Filtrar por categoría (filtro en el cliente)
             const categoryFilter = document.getElementById('categoryFilter');
             if (categoryFilter) {
                 categoryFilter.addEventListener('change', function(e) {
-                    console.log('Filtrar por categoría:', e.target.value);
-                    // Implementar lógica de filtrado según tu estructura de datos
+                    filterTableByCategory(e.target.value);
+                });
+            }
+
+            // Auto-submit del formulario de filtros cuando cambian mes o año
+            const mesFilter = document.getElementById('mesFilter');
+            const anioFilter = document.getElementById('anioFilter');
+            
+            if (mesFilter && anioFilter) {
+                mesFilter.addEventListener('change', function() {
+                    document.getElementById('filterForm').submit();
+                });
+                
+                anioFilter.addEventListener('change', function() {
+                    document.getElementById('filterForm').submit();
                 });
             }
 
@@ -459,6 +546,27 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
             }
             
             return true;
+        }
+
+        function filterTableByCategory(categoryName) {
+            const rows = document.querySelectorAll('.table-custom tbody tr');
+            
+            rows.forEach(row => {
+                const categoryCell = row.querySelector('td:nth-child(4)');
+                if (categoryCell) {
+                    const rowCategory = categoryCell.textContent.trim();
+                    
+                    if (!categoryName || rowCategory === categoryName) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+        }
+
+        function resetFilters() {
+            window.location.href = 'gasto.php';
         }
 
         function applyCategoryStyles() {

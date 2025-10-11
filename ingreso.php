@@ -10,23 +10,20 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
     ? "fotos/" . $fotoPerfil
     : $rutaDefault;
 
+// Obtener el mes y año seleccionado del filtro
+$mesSeleccionado = isset($_GET['mes']) && $_GET['mes'] != '' ? $_GET['mes'] : '';
+$anioSeleccionado = isset($_GET['anio']) && $_GET['anio'] != '' ? $_GET['anio'] : '';
+
 // Después de insertar un ingreso o gasto exitosamente
 require_once 'modelo/logros.php';
-function conectarPostgreSQL($host, $port, $dbname, $user, $password) {
-    try {
-        $conexion = @pg_connect("host=$host port=$port dbname=$dbname user=$user password=$password");
-        return $conexion;
-    } catch (Exception $e) {
-        return false;
-    }
-}
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-    <meta name="theme-color" content="#4f46e5">
+    <meta name="theme-color" content="#10b981">
     <link rel="shortcut icon" href="icono-ic.png" type="image/x-icon">
     
     <!-- Preconnect para mejorar velocidad -->
@@ -98,8 +95,12 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
 
 /* FILTROS */
 .filters-container{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;padding:1rem;background:var(--gray-50);border-radius:8px;flex-wrap:wrap;gap:1rem}
-.filter-select{background:white;border:1px solid var(--gray-200);padding:0.5rem 1rem;border-radius:6px;color:var(--gray-700);outline:none}
+.filter-group{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.filter-label{font-weight:500;color:var(--gray-700);white-space:nowrap}
+.filter-select{background:white;border:1px solid var(--gray-200);padding:0.5rem 1rem;border-radius:6px;color:var(--gray-700);outline:none;min-width:150px}
 .filter-select:focus{border-color:var(--primary)}
+.btn-filter{background:var(--primary);color:white;border:none;padding:0.5rem 1rem;border-radius:6px;cursor:pointer;transition:all 0.3s ease}
+.btn-filter:hover{background:var(--primary-light);transform:translateY(-1px)}
 
 /* TABLA */
 .table-container{background:white;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);overflow-x:auto}
@@ -111,16 +112,16 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
 
 /* MODAL */
 .modal-custom .modal-content{border:none;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.15)}
-.modal-custom .modal-header{background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 100%);color:white;border-radius:12px 12px 0 0;border:none;padding:1.5rem}
+.modal-custom .modal-header{background:linear-gradient(135deg,var(--success) 0%,#34d399 100%);color:white;border-radius:12px 12px 0 0;border:none;padding:1.5rem}
 .modal-custom .modal-title{font-weight:600}
 .modal-custom .btn-close{filter:invert(1)}
 .modal-custom .modal-body{padding:1.5rem}
 .form-group{margin-bottom:1.5rem}
 .form-label{font-weight:600;color:var(--gray-700);margin-bottom:0.5rem}
 .input-with-icon{position:relative}
-.input-with-icon span{position:absolute;left:1rem;top:50%;transform:translateY(-50%);color:var(--gray-500)}
+.input-with-icon span{position:absolute;left:1rem;top:50%;transform:translateY(-50%);color:var(--gray-500);z-index:2}
 .input-with-icon input,.input-with-icon select{padding-left:2.5rem}
-.form-control-custom{border:1px solid var(--gray-200);border-radius:6px;padding:0.75rem 1rem;transition:all 0.3s ease}
+.form-control-custom{border:1px solid var(--gray-200);border-radius:6px;padding:0.75rem 1rem;transition:all 0.3s ease;width:100%}
 .form-control-custom:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(79,70,229,0.1)}
 .btn-submit{background:linear-gradient(135deg,var(--success) 0%,#34d399 100%);border:none;padding:0.75rem 2rem;border-radius:6px;color:white;font-weight:600;width:100%;transition:all 0.3s ease}
 .btn-submit:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(16,185,129,0.3)}
@@ -146,12 +147,15 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
     .user-info{width:100%;justify-content:space-between}
     .section-header{flex-direction:column;align-items:flex-start}
     .filters-container{flex-direction:column;align-items:flex-start}
+    .filter-group{width:100%;justify-content:space-between}
     .content-section{padding:1.5rem}
     .summary-card{padding:1.25rem;flex-direction:column;text-align:center;gap:0.75rem}
     .summary-icon{width:50px;height:50px;font-size:1.25rem}
     .summary-amount{font-size:1.75rem}
     .table-container{overflow-x:auto}
+    .table-custom{min-width:800px}
     .modal-custom .modal-body{padding:1.25rem}
+    .btn-primary-custom{width:100%;justify-content:center}
 }
 @media (max-width:480px){
     .main-content{padding:0.75rem}
@@ -162,7 +166,7 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
     .section-title{font-size:1.1rem}
     .summary-card{padding:1rem;border-radius:8px}
     .summary-amount{font-size:1.5rem}
-    .btn-primary-custom{padding:0.625rem 1.25rem;font-size:0.875rem;width:100%;justify-content:center}
+    .btn-primary-custom{padding:0.625rem 1.25rem;font-size:0.875rem}
     .filters-container{padding:0.875rem}
     .filter-select{width:100%}
     .table-custom thead th,.table-custom tbody td{padding:0.75rem;font-size:0.875rem}
@@ -174,6 +178,7 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
     .section-title{font-size:1rem}
     .summary-amount{font-size:1.35rem}
     .content-section{padding:0.875rem}
+    .table-custom{min-width:700px}
 }
 @media (min-width:1440px){.main-content{max-width:1600px;margin-left:auto;margin-right:auto;padding-left:calc(var(--sidebar-width) + 3rem)}}
 @media (max-width:1024px) and (orientation:landscape){.summary-card{flex-direction:row;text-align:left}}
@@ -242,6 +247,10 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                     <i class="fas fa-calculator"></i>
                     <span>Calculadora</span>
                 </a>
+                <a href="asistente.php" class="nav-link" onclick="closeSidebarOnMobile()">
+                    <i class="fas fa-robot"></i>
+                    <span>Asistente IA</span>
+                </a>
             </div>
 
             <div class="nav-section">
@@ -249,6 +258,10 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                 <a href="configuracion.php" class="nav-link" onclick="closeSidebarOnMobile()">
                     <i class="fas fa-cog"></i>
                     <span>Configuración</span>
+                </a>
+                <a href="modelo/logout.php" class="nav-link">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Cerrar Sesión
                 </a>
             </div>
         </div>
@@ -280,55 +293,97 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                 </button>
             </div>
 
-            <!-- Tarjeta de resumen -->
-            <div class="summary-card">
-                <div class="summary-icon">
-                    <i class="fas fa-coins"></i>
-                </div>
-                <div class="summary-content">
-                    <div class="summary-title">TOTAL DE INGRESOS</div>
-                    <div class="summary-amount">+ S/<?php include 'modelo/totalIngreso.php'; ?></div>
-                </div>
-            </div>
+<!-- Tarjeta de resumen -->
+<div class="summary-card">
+    <div class="summary-icon">
+        <i class="fas fa-coins"></i>
+    </div>
+    <div class="summary-content">
+        <div class="summary-title">TOTAL DE INGRESOS <?php 
+            if (!empty($mesSeleccionado) && !empty($anioSeleccionado)) {
+                $meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+                echo '(' . ucfirst($meses[intval($mesSeleccionado) - 1]) . ' ' . $anioSeleccionado . ')';
+            } else {
+                echo '(Todos los registros)';
+            }
+        ?></div>
+        <div class="summary-amount">+ S/<?php include 'modelo/totalIngreso.php'; ?></div>
+    </div>
+</div>
 
             <!-- Filtros -->
             <div class="filters-container">
-                <div>
-                    <span>Filtrar por mes:</span>
+                <div class="filter-group">
+                    <span class="filter-label">Filtrar por período:</span>
+                    <form method="GET" action="" id="filterForm" class="filter-group">
+                        <select class="filter-select" name="mes" id="mesFilter">
+                            <option value="">Todos los meses</option>
+                            <option value="01" <?php echo $mesSeleccionado == '01' ? 'selected' : ''; ?>>Enero</option>
+                            <option value="02" <?php echo $mesSeleccionado == '02' ? 'selected' : ''; ?>>Febrero</option>
+                            <option value="03" <?php echo $mesSeleccionado == '03' ? 'selected' : ''; ?>>Marzo</option>
+                            <option value="04" <?php echo $mesSeleccionado == '04' ? 'selected' : ''; ?>>Abril</option>
+                            <option value="05" <?php echo $mesSeleccionado == '05' ? 'selected' : ''; ?>>Mayo</option>
+                            <option value="06" <?php echo $mesSeleccionado == '06' ? 'selected' : ''; ?>>Junio</option>
+                            <option value="07" <?php echo $mesSeleccionado == '07' ? 'selected' : ''; ?>>Julio</option>
+                            <option value="08" <?php echo $mesSeleccionado == '08' ? 'selected' : ''; ?>>Agosto</option>
+                            <option value="09" <?php echo $mesSeleccionado == '09' ? 'selected' : ''; ?>>Septiembre</option>
+                            <option value="10" <?php echo $mesSeleccionado == '10' ? 'selected' : ''; ?>>Octubre</option>
+                            <option value="11" <?php echo $mesSeleccionado == '11' ? 'selected' : ''; ?>>Noviembre</option>
+                            <option value="12" <?php echo $mesSeleccionado == '12' ? 'selected' : ''; ?>>Diciembre</option>
+                        </select>
+                        
+                        <select class="filter-select" name="anio" id="anioFilter">
+                            <option value="">Todos los años</option>
+                            <?php
+                            $currentYear = date('Y');
+                            for ($year = $currentYear; $year >= 2020; $year--) {
+                                $selected = $anioSeleccionado == $year ? 'selected' : '';
+                                echo "<option value='$year' $selected>$year</option>";
+                            }
+                            ?>
+                        </select>
+                        
+                        <button type="submit" class="btn-filter">
+                            <i class="fas fa-filter"></i>
+                            Filtrar
+                        </button>
+                        
+                        <button type="button" class="btn-filter" onclick="resetFilters()" style="background: var(--gray-500);">
+                            <i class="fas fa-redo"></i>
+                            Limpiar
+                        </button>
+                    </form>
                 </div>
-                <select class="filter-select" id="monthFilter">
-                    <option selected disabled>Seleccionar mes</option>
-                    <option value="1">Enero</option>
-                    <option value="2">Febrero</option>
-                    <option value="3">Marzo</option>
-                    <option value="4">Abril</option>
-                    <option value="5">Mayo</option>
-                    <option value="6">Junio</option>
-                    <option value="7">Julio</option>
-                    <option value="8">Agosto</option>
-                    <option value="9">Septiembre</option>
-                    <option value="10">Octubre</option>
-                    <option value="11">Noviembre</option>
-                    <option value="12">Diciembre</option>
-                </select>
+                
+                <div class="filter-group">
+                    <span class="filter-label">Forma de Pago:</span>
+                    <select class="filter-select" id="paymentFilter">
+                        <option value="">Todas las formas</option>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Yape">Yape</option>
+                        <option value="Plin">Plin</option>
+                        <option value="Tarjeta">Tarjeta</option>
+                        <option value="Transferencia">Transferencia</option>
+                    </select>
+                </div>
             </div>
 
-            <!-- Tabla de ingresos -->
-            <div class="table-container">
-                <table class="table table-custom">
-                    <thead>
-                        <tr>
-                            <th>Monto</th>
-                            <th>Forma de Pago</th>
-                            <th>Fecha</th>
-                            <th>Nota</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php include 'modelo/tableIngreso.php'; ?>
-                    </tbody>
-                </table>
-            </div>
+<!-- Tabla de ingresos -->
+<div class="table-container">
+    <table class="table table-custom">
+        <thead>
+            <tr>
+                <th>Monto</th>
+                <th>Forma de Pago</th>
+                <th>Fecha</th>
+                <th>Nota</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php include 'modelo/tableIngreso.php'; ?>
+        </tbody>
+    </table>
+</div>
         </section>
     </main>
 
@@ -346,7 +401,7 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                             <label class="form-label">Monto</label>
                             <div class="input-with-icon">
                                 <span>S/</span>
-                                <input type="number" step="0.01" class="form-control form-control-custom" id="montoInput" name="monto" placeholder="0.00" required>
+                                <input type="text" class="form-control-custom" id="montoInput" name="monto" placeholder="0.00" required>
                             </div>
                         </div>
                         
@@ -354,7 +409,7 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                             <label class="form-label">Forma de Pago</label>
                             <div class="input-with-icon">
                                 <span><i class="fas fa-credit-card"></i></span>
-                                <select class="form-control form-control-custom" name="forma_pago" required>
+                                <select class="form-control-custom" name="forma_pago" required>
                                     <option value="">Seleccione Forma de Pago</option>
                                     <option value="Efectivo">Efectivo</option>
                                     <option value="Yape">Yape</option>
@@ -367,7 +422,7 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                         
                         <div class="form-group">
                             <label class="form-label">Nota</label>
-                            <textarea class="form-control form-control-custom" id="note" name="nota" rows="3" placeholder="Descripción del ingreso..." required></textarea>
+                            <textarea class="form-control-custom" id="note" name="nota" rows="3" placeholder="Descripción del ingreso..." required></textarea>
                         </div>
                         
                         <button type="submit" class="btn-submit">
@@ -388,6 +443,7 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
         document.addEventListener('DOMContentLoaded', function() {
             initializeApp();
             initializeMobileMenu();
+            applyAmountStyles();
         });
 
         function initializeApp() {
@@ -395,25 +451,42 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
             const ingresoForm = document.getElementById('ingresoForm');
             if (ingresoForm) {
                 ingresoForm.addEventListener('submit', function(e) {
-                    const montoInput = document.getElementById('montoInput');
-                    const montoValue = parseFloat(montoInput.value);
-                    
-                    if (isNaN(montoValue) || montoValue <= 0) {
+                    if (!validateForm()) {
                         e.preventDefault();
-                        alert('Por favor ingrese un monto válido mayor a 0');
-                        montoInput.focus();
                         return false;
                     }
                     return true;
                 });
             }
 
-            // Filtrar por mes
-            const monthFilter = document.getElementById('monthFilter');
-            if (monthFilter) {
-                monthFilter.addEventListener('change', function(e) {
-                    console.log('Filtrar por mes:', e.target.value);
-                    // Implementar lógica de filtrado según tu estructura de datos
+            // Formatear monto mientras se escribe
+            const montoInput = document.getElementById('montoInput');
+            if (montoInput) {
+                montoInput.addEventListener('input', function(e) {
+                    let value = e.target.value.replace(/[^\d.]/g, '');
+                    e.target.value = value;
+                });
+            }
+
+            // Filtrar por forma de pago (filtro en el cliente)
+            const paymentFilter = document.getElementById('paymentFilter');
+            if (paymentFilter) {
+                paymentFilter.addEventListener('change', function(e) {
+                    filterTableByPayment(e.target.value);
+                });
+            }
+
+            // Auto-submit del formulario de filtros cuando cambian mes o año
+            const mesFilter = document.getElementById('mesFilter');
+            const anioFilter = document.getElementById('anioFilter');
+            
+            if (mesFilter && anioFilter) {
+                mesFilter.addEventListener('change', function() {
+                    document.getElementById('filterForm').submit();
+                });
+                
+                anioFilter.addEventListener('change', function() {
+                    document.getElementById('filterForm').submit();
                 });
             }
 
@@ -421,6 +494,55 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
             var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
             var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
                 return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        }
+
+        function validateForm() {
+            const montoInput = document.getElementById('montoInput');
+            const montoValue = montoInput.value.trim();
+            
+            if (isNaN(parseFloat(montoValue)) || parseFloat(montoValue) <= 0) {
+                alert('Por favor ingrese un monto válido');
+                montoInput.focus();
+                return false;
+            }
+            
+            return true;
+        }
+
+        function filterTableByPayment(paymentMethod) {
+            const rows = document.querySelectorAll('.table-custom tbody tr');
+            
+            rows.forEach(row => {
+                const paymentCell = row.querySelector('td:nth-child(2)');
+                if (paymentCell) {
+                    const rowPayment = paymentCell.textContent.trim();
+                    
+                    if (!paymentMethod || rowPayment === paymentMethod) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+        }
+
+        function resetFilters() {
+            window.location.href = 'ingreso.php';
+        }
+
+        function applyAmountStyles() {
+            // Aplicar estilo positivo a los montos
+            const amountCells = document.querySelectorAll('td:nth-child(1)'); // Columna de monto
+            amountCells.forEach(cell => {
+                cell.classList.add('amount-positive');
+            });
+
+            // Aplicar estilos a los métodos de pago
+            const paymentCells = document.querySelectorAll('td:nth-child(2)'); // Columna de forma de pago
+            paymentCells.forEach(cell => {
+                const paymentText = cell.textContent.trim();
+                cell.innerHTML = `<span class="payment-method">${paymentText}</span>`;
             });
         }
 

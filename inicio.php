@@ -433,14 +433,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
                     <i class="fas fa-calculator"></i>
                     <span>Calculadora</span>
                 </a>
-            </div>
 
+                <a href="asistente.php" class="nav-link" onclick="closeSidebarOnMobile()">
+                <i class="fas fa-robot"></i>
+                <span>Asistente IA</span>
+                </a>
+            </div>
             <div class="nav-section">
                 <div class="nav-title">Otros</div>
                 <a href="configuracion.php" class="nav-link" onclick="closeSidebarOnMobile()">
                     <i class="fas fa-cog"></i>
                     <span>Configuración</span>
                 </a>
+                <a href="modelo/logout.php" class="nav-link">
+                <i class="fas fa-sign-out-alt"></i>
+                Cerrar Sesión
+            </a>
             </div>
         </div>
     </nav>
@@ -482,26 +490,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
             <div class="welcome-text">¡Bienvenido de nuevo! <span><?php echo htmlspecialchars($nombre); ?></span></div>
         </div>
 
-        <!-- Gráfico -->
-        <div class="chart-section">
-            <div class="section-header">
-                <h2>Resumen Financiero</h2>
-                <div class="chart-controls">
-                    <button class="chart-btn active" onclick="changeChartType('doughnut')">
-                        <i class="fas fa-chart-pie"></i>
-                    </button>
-                    <button class="chart-btn" onclick="changeChartType('bar')">
-                        <i class="fas fa-chart-bar"></i>
-                    </button>
-                    <button class="chart-btn" onclick="changeChartType('line')">
-                        <i class="fas fa-chart-line"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="chart-container">
-                <canvas id="financialChart"></canvas>
-            </div>
-        </div>
 
         <!-- Alertas -->
         <?php if (!empty($alertas)): ?>

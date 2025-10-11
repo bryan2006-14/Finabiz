@@ -16,31 +16,47 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
 
 $idUsuario = $_SESSION['id_usuario'];
 
-// 🔹 Funciones con PDO
-function getTotalIngreso($connection, $idUsuario) {
+// Obtener parámetros de filtro
+$mesSeleccionado = isset($_GET['mes']) && $_GET['mes'] != '' ? $_GET['mes'] : '';
+$anioSeleccionado = isset($_GET['anio']) && $_GET['anio'] != '' ? $_GET['anio'] : '';
+
+// 🔹 Funciones con PDO y filtros
+function getTotalIngreso($connection, $idUsuario, $mes = '', $anio = '') {
     $query = "SELECT SUM(monto) as total FROM ingresos WHERE id_usuario = :id_usuario";
+    $params = [':id_usuario' => $idUsuario];
+    
+    if (!empty($mes) && !empty($anio)) {
+        $query .= " AND EXTRACT(MONTH FROM fecha) = :mes AND EXTRACT(YEAR FROM fecha) = :anio";
+        $params[':mes'] = $mes;
+        $params[':anio'] = $anio;
+    }
+    
     $stmt = $connection->prepare($query);
-    $stmt->execute([':id_usuario' => $idUsuario]);
+    $stmt->execute($params);
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
     return $result['total'] ?? 0;
 }
 
-function getTotalGasto($connection, $idUsuario) {
+function getTotalGasto($connection, $idUsuario, $mes = '', $anio = '') {
     $query = "SELECT SUM(monto) as total FROM gastos WHERE id_usuario = :id_usuario";
+    $params = [':id_usuario' => $idUsuario];
+    
+    if (!empty($mes) && !empty($anio)) {
+        $query .= " AND EXTRACT(MONTH FROM fecha) = :mes AND EXTRACT(YEAR FROM fecha) = :anio";
+        $params[':mes'] = $mes;
+        $params[':anio'] = $anio;
+    }
+    
     $stmt = $connection->prepare($query);
-    $stmt->execute([':id_usuario' => $idUsuario]);
+    $stmt->execute($params);
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
     return $result['total'] ?? 0;
 }
 
-// 🔹 Obtener totales
-$ingresoTotal = getTotalIngreso($connection, $idUsuario);
-$gastoTotal   = getTotalGasto($connection, $idUsuario);
+// 🔹 Obtener totales con filtros
+$ingresoTotal = getTotalIngreso($connection, $idUsuario, $mesSeleccionado, $anioSeleccionado);
+$gastoTotal   = getTotalGasto($connection, $idUsuario, $mesSeleccionado, $anioSeleccionado);
 $balance      = floatval($ingresoTotal) - floatval($gastoTotal);
-
-// 🔹 SOLUCIÓN: Eliminar las líneas problemáticas de ComparativaAnonima
-// $comparativa = new ComparativaAnonima();
-// $stats = $comparativa->getStatsComparativa($_SESSION['id_usuario']);
 
 ?>
 
@@ -115,8 +131,12 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
 
 /* FILTROS */
 .filters-container{display:flex;justify-content:space-between;align-items:center;margin-bottom:2rem;padding:1rem;background:var(--gray-50);border-radius:8px;flex-wrap:wrap;gap:1rem}
-.filter-select{background:white;border:1px solid var(--gray-200);padding:0.75rem 1rem;border-radius:6px;color:var(--gray-700);outline:none;min-width:200px}
+.filter-group{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.filter-label{font-weight:500;color:var(--gray-700);white-space:nowrap}
+.filter-select{background:white;border:1px solid var(--gray-200);padding:0.75rem 1rem;border-radius:6px;color:var(--gray-700);outline:none;min-width:150px}
 .filter-select:focus{border-color:var(--primary)}
+.btn-filter{background:var(--primary);color:white;border:none;padding:0.5rem 1rem;border-radius:6px;cursor:pointer;transition:all 0.3s ease;display:flex;align-items:center;gap:0.5rem}
+.btn-filter:hover{background:var(--primary-light);transform:translateY(-1px)}
 
 /* TARJETAS DE BALANCE */
 .balance-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.5rem;margin-bottom:2rem}
@@ -168,6 +188,7 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
     .user-info{width:100%;justify-content:space-between}
     .section-header{flex-direction:column;align-items:flex-start}
     .filters-container{flex-direction:column;align-items:flex-start}
+    .filter-group{width:100%;justify-content:space-between}
     .content-section{padding:1.5rem}
     .balance-cards{grid-template-columns:1fr}
     .balance-card{padding:1.25rem;flex-direction:column;text-align:center;gap:0.75rem}
@@ -187,7 +208,7 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
     .content-section{padding:1rem;border-radius:8px;margin-bottom:1rem}
     .section-title{font-size:1.1rem}
     .filters-container{padding:0.875rem}
-    .filter-select{width:100%;min-width:auto}
+    .filter-select{width:100%}
     .balance-card{padding:1rem;border-radius:8px}
     .balance-amount{font-size:1.35rem}
     .chart-section{padding:1rem;border-radius:8px}
@@ -275,6 +296,10 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                     <i class="fas fa-calculator"></i>
                     <span>Calculadora</span>
                 </a>
+                <a href="asistente.php" class="nav-link" onclick="closeSidebarOnMobile()">
+                    <i class="fas fa-robot"></i>
+                    <span>Asistente IA</span>
+                </a>
             </div>
 
             <div class="nav-section">
@@ -282,6 +307,10 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                 <a href="configuracion.php" class="nav-link" onclick="closeSidebarOnMobile()">
                     <i class="fas fa-cog"></i>
                     <span>Configuración</span>
+                </a>
+                <a href="modelo/logout.php" class="nav-link">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Cerrar Sesión
                 </a>
             </div>
         </div>
@@ -306,29 +335,59 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
         <!-- Sección de contenido -->
         <section class="content-section">
             <div class="section-header">
-                <h2 class="section-title">Resumen del Mes</h2>
+                <h2 class="section-title">Resumen <?php 
+                    if (!empty($mesSeleccionado) && !empty($anioSeleccionado)) {
+                        $meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+                        echo 'de ' . ucfirst($meses[intval($mesSeleccionado) - 1]) . ' ' . $anioSeleccionado;
+                    } else {
+                        echo 'General';
+                    }
+                ?></h2>
             </div>
 
             <!-- Filtros -->
             <div class="filters-container">
-                <div>
-                    <span>Seleccionar período:</span>
+                <div class="filter-group">
+                    <span class="filter-label">Filtrar por período:</span>
+                    <form method="GET" action="" id="filterForm" class="filter-group">
+                        <select class="filter-select" name="mes" id="mesFilter">
+                            <option value="">Todos los meses</option>
+                            <option value="01" <?php echo $mesSeleccionado == '01' ? 'selected' : ''; ?>>Enero</option>
+                            <option value="02" <?php echo $mesSeleccionado == '02' ? 'selected' : ''; ?>>Febrero</option>
+                            <option value="03" <?php echo $mesSeleccionado == '03' ? 'selected' : ''; ?>>Marzo</option>
+                            <option value="04" <?php echo $mesSeleccionado == '04' ? 'selected' : ''; ?>>Abril</option>
+                            <option value="05" <?php echo $mesSeleccionado == '05' ? 'selected' : ''; ?>>Mayo</option>
+                            <option value="06" <?php echo $mesSeleccionado == '06' ? 'selected' : ''; ?>>Junio</option>
+                            <option value="07" <?php echo $mesSeleccionado == '07' ? 'selected' : ''; ?>>Julio</option>
+                            <option value="08" <?php echo $mesSeleccionado == '08' ? 'selected' : ''; ?>>Agosto</option>
+                            <option value="09" <?php echo $mesSeleccionado == '09' ? 'selected' : ''; ?>>Septiembre</option>
+                            <option value="10" <?php echo $mesSeleccionado == '10' ? 'selected' : ''; ?>>Octubre</option>
+                            <option value="11" <?php echo $mesSeleccionado == '11' ? 'selected' : ''; ?>>Noviembre</option>
+                            <option value="12" <?php echo $mesSeleccionado == '12' ? 'selected' : ''; ?>>Diciembre</option>
+                        </select>
+                        
+                        <select class="filter-select" name="anio" id="anioFilter">
+                            <option value="">Todos los años</option>
+                            <?php
+                            $currentYear = date('Y');
+                            for ($year = $currentYear; $year >= 2020; $year--) {
+                                $selected = $anioSeleccionado == $year ? 'selected' : '';
+                                echo "<option value='$year' $selected>$year</option>";
+                            }
+                            ?>
+                        </select>
+                        
+                        <button type="submit" class="btn-filter">
+                            <i class="fas fa-filter"></i>
+                            Filtrar
+                        </button>
+                        
+                        <button type="button" class="btn-filter" onclick="resetFilters()" style="background: var(--gray-500);">
+                            <i class="fas fa-redo"></i>
+                            Limpiar
+                        </button>
+                    </form>
                 </div>
-                <select class="filter-select" id="periodFilter">
-                    <option selected value="current">Mes Actual</option>
-                    <option value="1">Enero</option>
-                    <option value="2">Febrero</option>
-                    <option value="3">Marzo</option>
-                    <option value="4">Abril</option>
-                    <option value="5">Mayo</option>
-                    <option value="6">Junio</option>
-                    <option value="7">Julio</option>
-                    <option value="8">Agosto</option>
-                    <option value="9">Septiembre</option>
-                    <option value="10">Octubre</option>
-                    <option value="11">Noviembre</option>
-                    <option value="12">Diciembre</option>
-                </select>
             </div>
 
             <!-- Tarjetas de balance -->
@@ -338,7 +397,7 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                         <i class="fas fa-arrow-up"></i>
                     </div>
                     <div class="balance-content">
-                        <div class="balance-title">INGRESOS TOTALES</div>
+                        <div class="balance-title">INGRESOS <?php echo !empty($mesSeleccionado) && !empty($anioSeleccionado) ? 'DEL PERÍODO' : 'TOTALES'; ?></div>
                         <div class="balance-amount">+ S/<?php echo number_format(floatval($ingresoTotal), 2); ?></div>
                     </div>
                 </div>
@@ -348,7 +407,7 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                         <i class="fas fa-arrow-down"></i>
                     </div>
                     <div class="balance-content">
-                        <div class="balance-title">GASTOS TOTALES</div>
+                        <div class="balance-title">GASTOS <?php echo !empty($mesSeleccionado) && !empty($anioSeleccionado) ? 'DEL PERÍODO' : 'TOTALES'; ?></div>
                         <div class="balance-amount">- S/<?php echo number_format(floatval($gastoTotal), 2); ?></div>
                     </div>
                 </div>
@@ -358,7 +417,7 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                         <i class="fas fa-scale-balanced"></i>
                     </div>
                     <div class="balance-content">
-                        <div class="balance-title">BALANCE FINAL</div>
+                        <div class="balance-title">BALANCE <?php echo !empty($mesSeleccionado) && !empty($anioSeleccionado) ? 'DEL PERÍODO' : 'FINAL'; ?></div>
                         <div class="balance-amount">
                             <?php 
                             $balanceFormatted = number_format(abs($balance), 2);
@@ -449,14 +508,25 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
         };
 
         function initializeApp() {
-            // Filtrar por período
-            const periodFilter = document.getElementById('periodFilter');
-            if (periodFilter) {
-                periodFilter.addEventListener('change', function(e) {
-                    console.log('Cambiar período:', e.target.value);
-                    // Aquí iría la lógica para cargar datos del período seleccionado
+            // Auto-submit del formulario de filtros cuando cambian mes o año
+            const mesFilter = document.getElementById('mesFilter');
+            const anioFilter = document.getElementById('anioFilter');
+            
+            if (mesFilter && anioFilter) {
+                mesFilter.addEventListener('change', function() {
+                    document.getElementById('filterForm').submit();
+                });
+                
+                anioFilter.addEventListener('change', function() {
+                    document.getElementById('filterForm').submit();
                 });
             }
+
+            // Inicializar tooltips de Bootstrap
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
         }
 
         function initializeChart() {
@@ -522,6 +592,10 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
             initializeChart();
         }
 
+        function resetFilters() {
+            window.location.href = 'balance.php';
+        }
+
         function initializeMobileMenu() {
             const mobileMenuBtn = document.getElementById('mobile-menu-btn');
             const sidebar = document.getElementById('sidebar');
@@ -565,12 +639,6 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                 overlay.style.display = 'none';
                 document.body.style.overflow = '';
             }
-        }
-
-        // Actualizar estadísticas en tiempo real
-        function updateStats() {
-            // Aquí podrías agregar lógica para actualizar estadísticas
-            // cuando cambien los filtros
         }
     </script>
 </body>

@@ -11,13 +11,29 @@ if (!$id_usuario) {
     exit;
 }
 
+// Obtener parámetros de filtro
+$mes = isset($_GET['mes']) ? $_GET['mes'] : '';
+$anio = isset($_GET['anio']) ? $_GET['anio'] : '';
+
+// Consulta base
 $sql = "SELECT g.monto, g.forma_pago, g.fecha, c.categoria, g.nota
         FROM gastos g
         JOIN categorias c ON g.id_categoria = c.id_categoria
-        WHERE g.id_usuario = :id
-        ORDER BY g.fecha DESC";
+        WHERE g.id_usuario = :id";
+
+$params = [':id' => $id_usuario];
+
+// Agregar filtros solo si se especifican
+if (!empty($mes) && !empty($anio)) {
+    $sql .= " AND EXTRACT(MONTH FROM g.fecha) = :mes AND EXTRACT(YEAR FROM g.fecha) = :anio";
+    $params[':mes'] = $mes;
+    $params[':anio'] = $anio;
+}
+
+$sql .= " ORDER BY g.fecha DESC";
+
 $stmt = $connection->prepare($sql);
-$stmt->execute([':id' => $id_usuario]);
+$stmt->execute($params);
 $gastos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 if ($gastos) {
@@ -39,7 +55,7 @@ if ($gastos) {
 
     foreach ($gastos as $gasto) {
         $date = new DateTime($gasto['fecha']);
-        $fecha = $date->format("d \d\e F \d\e Y"); // ejemplo: 29 de September de 2025
+        $fecha = $date->format("d \d\e F \d\e Y");
         $fecha = strtr($fecha, $meses); // traducir al español
 
         echo "<tr>";
@@ -51,5 +67,21 @@ if ($gastos) {
         echo "</tr>";
     }
 } else {
-    echo "<tr><td colspan='5'>No hay gastos registrados</td></tr>";
+    if (!empty($mes) && !empty($anio)) {
+        // Mostrar mensaje específico del período si se filtró
+        $mesesNombres = [
+            '01' => 'enero', '02' => 'febrero', '03' => 'marzo', '04' => 'abril',
+            '05' => 'mayo', '06' => 'junio', '07' => 'julio', '08' => 'agosto',
+            '09' => 'septiembre', '10' => 'octubre', '11' => 'noviembre', '12' => 'diciembre'
+        ];
+        
+        $mesEspanol = $mesesNombres[$mes] ?? 'este mes';
+        
+        echo "<tr><td colspan='5' class='text-center'>No hay gastos registrados para " . 
+             ucfirst($mesEspanol) . " de $anio</td></tr>";
+    } else {
+        // Mensaje general si no hay gastos
+        echo "<tr><td colspan='5' class='text-center'>No hay gastos registrados</td></tr>";
+    }
 }
+?>

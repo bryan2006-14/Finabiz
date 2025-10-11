@@ -248,6 +248,9 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                     <i class="fas fa-calculator"></i>
                     <span>Calculadora</span>
                 </a>
+                <a href="asistente.php" class="nav-link" onclick="closeSidebarOnMobile()">
+                <i class="fas fa-robot"></i>
+                <span>Asistente IA</span>
             </div>
 
             <div class="nav-section">
@@ -256,6 +259,10 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                     <i class="fas fa-cog"></i>
                     <span>Configuración</span>
                 </a>
+                <a href="modelo/logout.php" class="nav-link">
+                <i class="fas fa-sign-out-alt"></i>
+                Cerrar Sesión
+            </a>
             </div>
         </div>
     </nav>

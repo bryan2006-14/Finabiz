@@ -130,20 +130,21 @@
         .ai-feature-text h4{font-size:1.1rem;font-weight:700;color:var(--gray-800);margin-bottom:0.25rem}
         .ai-feature-text p{font-size:0.9rem;color:var(--gray-600);margin:0}
 
-        /* FEATURES SECTION */
+        /* FEATURES SECTION - MODIFICADO */
         .features{padding:7rem 2rem;background:var(--white)}
         .section-title{text-align:center;max-width:900px;margin:0 auto 5rem}
         .section-title h2{font-family:var(--font-secondary);font-size:clamp(2rem,4vw,3.5rem);font-weight:800;color:var(--gray-900);margin-bottom:1.5rem;line-height:1.2}
         .section-title p{font-size:1.25rem;color:var(--gray-600);line-height:1.7}
         .features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:2.5rem;max-width:1400px;margin:0 auto}
-        .feature-card{background:var(--white);border-radius:20px;padding:3rem 2.5rem;text-align:center;transition:var(--transition);box-shadow:var(--shadow-md);border:1px solid var(--gray-100);position:relative;overflow:hidden}
+        .feature-card{background:var(--white);border-radius:20px;padding:3rem 2.5rem;text-align:center;transition:var(--transition);box-shadow:var(--shadow-md);border:1px solid var(--gray-100);position:relative;overflow:hidden;min-height:320px;display:flex;flex-direction:column;justify-content:center;align-items:center}
         .feature-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--primary) 0%,var(--primary-light) 100%);transform:scaleX(0);transition:var(--transition)}
         .feature-card:hover::before{transform:scaleX(1)}
         .feature-card:hover{transform:translateY(-12px);box-shadow:var(--shadow-2xl)}
         .feature-icon{width:80px;height:80px;background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 100%);border-radius:20px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;color:white;font-size:2rem;box-shadow:0 8px 20px rgba(79,70,229,0.3);transition:var(--transition)}
         .feature-card:hover .feature-icon{transform:scale(1.1) rotate(5deg)}
         .feature-card h3{font-size:1.5rem;font-weight:700;color:var(--gray-800);margin-bottom:1rem}
-        .feature-card p{color:var(--gray-600);line-height:1.7;font-size:1rem}
+        .feature-description{color:var(--gray-600);line-height:1.7;font-size:1rem;max-height:0;opacity:0;overflow:hidden;transition:all 0.5s ease;margin:0}
+        .feature-card:hover .feature-description{max-height:200px;opacity:1;margin-top:1rem}
 
         /* TESTIMONIALS SECTION */
         .testimonials{padding:7rem 2rem;background:var(--gray-50)}
@@ -707,42 +708,42 @@
                     <i class="fas fa-wallet"></i>
                 </div>
                 <h3>Control de Gastos</h3>
-                <p>Registra y categoriza tus gastos automáticamente. Visualiza en qué gastas tu dinero con gráficos intuitivos y reportes detallados.</p>
+                <p class="feature-description">Registra y categoriza tus gastos automáticamente. Visualiza en qué gastas tu dinero con gráficos intuitivos y reportes detallados.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">
                     <i class="fas fa-chart-line"></i>
                 </div>
                 <h3>Análisis Predictivo</h3>
-                <p>Nuestra IA predice tus gastos futuros basándose en tus patrones históricos y te ayuda a planificar mejor tu presupuesto mensual.</p>
+                <p class="feature-description">Nuestra IA predice tus gastos futuros basándose en tus patrones históricos y te ayuda a planificar mejor tu presupuesto mensual.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">
                     <i class="fas fa-piggy-bank"></i>
                 </div>
                 <h3>Metas de Ahorro</h3>
-                <p>Define objetivos de ahorro personalizados y recibe recordatorios y consejos para alcanzarlos más rápido de lo que imaginas.</p>
+                <p class="feature-description">Define objetivos de ahorro personalizados y recibe recordatorios y consejos para alcanzarlos más rápido de lo que imaginas.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">
                     <i class="fas fa-file-invoice-dollar"></i>
                 </div>
                 <h3>Gestión de Ingresos</h3>
-                <p>Registra todas tus fuentes de ingresos y obtén una visión clara de tu flujo de efectivo mensual y proyecciones anuales.</p>
+                <p class="feature-description">Registra todas tus fuentes de ingresos y obtén una visión clara de tu flujo de efectivo mensual y proyecciones anuales.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">
                     <i class="fas fa-chart-pie"></i>
                 </div>
                 <h3>Reportes Detallados</h3>
-                <p>Genera reportes personalizados por período, categoría o tipo de transacción. Exporta tus datos cuando los necesites.</p>
+                <p class="feature-description">Genera reportes personalizados por período, categoría o tipo de transacción. Exporta tus datos cuando los necesites.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">
                     <i class="fas fa-shield-halved"></i>
                 </div>
                 <h3>Privacidad Total</h3>
-                <p>Tus datos financieros están protegidos con encriptación de nivel bancario. Tu información nunca se comparte con terceros.</p>
+                <p class="feature-description">Tus datos financieros están protegidos con encriptación de nivel bancario. Tu información nunca se comparte con terceros.</p>
             </div>
         </div>
     </section>
@@ -833,10 +834,9 @@
                 <h3>Finabiz</h3>
                 <p>Tu asistente financiero personal con inteligencia artificial. Toma el control de tus finanzas y alcanza tus metas con ayuda de la IA más avanzada.</p>
                 <div class="social-links">
-                    <a href="#" class="social-link"><i class="fab fa-facebook-f"></i></a>
-                    <a href="#" class="social-link"><i class="fab fa-twitter"></i></a>
-                    <a href="#" class="social-link"><i class="fab fa-instagram"></i></a>
-                    <a href="#" class="social-link"><i class="fab fa-linkedin-in"></i></a>
+                    <a href="https://www.facebook.com/share/14KkXdU2iEp/" class="social-link"><i class="fab fa-facebook-f"></i></a>
+                    <a href="https://www.tiktok.com/@finabiz.pe" class="social-link"><i class="fab fa-tiktok"></i></a>
+                    <a href="https://www.instagram.com/finabizperu?igsh=MTRmenZwY2U4cGNyMg==" class="social-link"><i class="fab fa-instagram"></i></a>
                 </div>
             </div>
             <div class="footer-column">
