@@ -60,8 +60,8 @@ if (isset($_GET['code'])) {
             $update->execute();
             
         } else {
-    // 🆕 Crear nuevo usuario CON PASSWORD ENCRIPTADO
-    $auto_password = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
+    // 🆕 Crear nuevo usuario CON PASSWORD TEMPORAL
+    $temp_password = password_hash("google_temp_" . bin2hex(random_bytes(8)), PASSWORD_DEFAULT);
     
     $insert = $connection->prepare("
         INSERT INTO usuarios (nombre, correo, foto_perfil, password) 
@@ -70,7 +70,7 @@ if (isset($_GET['code'])) {
     $insert->bindParam(':nombre', $name);
     $insert->bindParam(':email', $email);
     $insert->bindParam(':foto', $picture);
-    $insert->bindParam(':password', $auto_password);
+    $insert->bindParam(':password', $temp_password);
     $insert->execute();
     $user_id = (int)$connection->lastInsertId();
 }
