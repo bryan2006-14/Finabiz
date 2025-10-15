@@ -9,24 +9,38 @@ if ($_POST) {
     $password = $_POST['password'];
 
     try {
+        // Preparamos la consulta con parámetros
         $stmt = $connection->prepare("SELECT id_usuario, nombre, password, foto_perfil FROM usuarios WHERE correo = :correo");
         $stmt->execute([':correo' => $email]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($row) {
-            // ✅ SOLUCIÓN SIMPLE - Redirigir usuarios de Google automáticamente
-            if ($row['password'] === '') {
-                header('Location: social_login.php?provider=google');
-                exit;
+            $password_bd = $row['password'];
+
+            // ✅ VERIFICACIÓN CORREGIDA - Maneja NULL y ambos tipos de contraseña
+            $login_valid = false;
+            
+            if ($password_bd === null || $password_bd === '') {
+                // Usuario sin contraseña (probablemente de Google)
+                $error_message = "Este usuario se registró con Google. Por favor usa 'Iniciar con Google'";
+            } 
+            // Primero verificar si coincide en texto plano (para usuarios existentes)
+            else if ($password_bd === $password) {
+                $login_valid = true;
             }
-            // Verificar contraseña normal
-            else if ($row['password'] === $password || password_verify($password, $row['password'])) {
+            // Luego verificar con password_verify (para usuarios nuevos)
+            else if (password_verify($password, $password_bd)) {
+                $login_valid = true;
+            }
+
+            if ($login_valid) {
                 $_SESSION['nombre'] = $row['nombre'];
                 $_SESSION['id_usuario'] = $row['id_usuario'];
                 $_SESSION['foto_perfil'] = $row['foto_perfil'];
+
                 header('Location: inicio.php');
                 exit;
-            } else {
+            } else if ($password_bd !== null && $password_bd !== '') {
                 $error_message = "La contraseña no coincide";
             }
         } else {

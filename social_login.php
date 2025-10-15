@@ -59,38 +59,31 @@ if (isset($_GET['code'])) {
             $update->bindParam(':id', $user_id);
             $update->execute();
             
-            // ✅ Guardar sesión para usuario existente
-            $_SESSION['id_usuario'] = $user_id;
-            $_SESSION['nombre'] = $name;
-            $_SESSION['foto_perfil'] = $picture;
-            $_SESSION['google_logged_in'] = true;
-
-            // 🔁 Redirigir directamente al inicio
-            header('Location: inicio.php');
-            exit;
-            
         } else {
-            // 🆕 Crear nuevo usuario SIN PASSWORD (vacío)
+            // 🆕 Crear nuevo usuario CON PASSWORD ENCRIPTADO
+            $auto_password = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
+            
             $insert = $connection->prepare("
                 INSERT INTO usuarios (nombre, correo, foto_perfil, password) 
-                VALUES (:nombre, :email, :foto, '')
+                VALUES (:nombre, :email, :foto, :password)
             ");
             $insert->bindParam(':nombre', $name);
             $insert->bindParam(':email', $email);
             $insert->bindParam(':foto', $picture);
+            $insert->bindParam(':password', $auto_password);
             $insert->execute();
             $user_id = (int)$connection->lastInsertId();
-
-            // ✅ Guardar datos temporales en sesión para configurar password
-            $_SESSION['temp_user_id'] = $user_id;
-            $_SESSION['temp_user_email'] = $email;
-            $_SESSION['temp_user_name'] = $name;
-            $_SESSION['temp_user_picture'] = $picture;
-
-            // 🔁 Redirigir a configurar contraseña
-            header('Location: configurar_password.php');
-            exit;
         }
+
+        // ✅ Guardar sesión
+        $_SESSION['id_usuario'] = $user_id;
+        $_SESSION['nombre'] = $name;
+        $_SESSION['foto_perfil'] = $picture;
+        $_SESSION['google_logged_in'] = true;
+
+        // 🔁 Redirigir a inicio.php
+        header('Location: inicio.php');
+        exit;
 
     } catch (Exception $e) {
         die('Error en el proceso: ' . htmlspecialchars($e->getMessage()));
