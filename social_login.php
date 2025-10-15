@@ -59,31 +59,38 @@ if (isset($_GET['code'])) {
             $update->bindParam(':id', $user_id);
             $update->execute();
             
+            // ✅ Guardar sesión para usuario existente
+            $_SESSION['id_usuario'] = $user_id;
+            $_SESSION['nombre'] = $name;
+            $_SESSION['foto_perfil'] = $picture;
+            $_SESSION['google_logged_in'] = true;
+
+            // 🔁 Redirigir directamente al inicio
+            header('Location: inicio.php');
+            exit;
+            
         } else {
-    // 🆕 Crear nuevo usuario CON PASSWORD TEMPORAL
-    $temp_password = password_hash("google_temp_" . bin2hex(random_bytes(8)), PASSWORD_DEFAULT);
-    
-    $insert = $connection->prepare("
-        INSERT INTO usuarios (nombre, correo, foto_perfil, password) 
-        VALUES (:nombre, :email, :foto, :password)
-    ");
-    $insert->bindParam(':nombre', $name);
-    $insert->bindParam(':email', $email);
-    $insert->bindParam(':foto', $picture);
-    $insert->bindParam(':password', $temp_password);
-    $insert->execute();
-    $user_id = (int)$connection->lastInsertId();
-}
+            // 🆕 Crear nuevo usuario SIN PASSWORD (vacío)
+            $insert = $connection->prepare("
+                INSERT INTO usuarios (nombre, correo, foto_perfil, password) 
+                VALUES (:nombre, :email, :foto, '')
+            ");
+            $insert->bindParam(':nombre', $name);
+            $insert->bindParam(':email', $email);
+            $insert->bindParam(':foto', $picture);
+            $insert->execute();
+            $user_id = (int)$connection->lastInsertId();
 
-        // ✅ Guardar sesión
-        $_SESSION['id_usuario'] = $user_id;
-        $_SESSION['nombre'] = $name;
-        $_SESSION['foto_perfil'] = $picture;
-        $_SESSION['google_logged_in'] = true;
+            // ✅ Guardar datos temporales en sesión para configurar password
+            $_SESSION['temp_user_id'] = $user_id;
+            $_SESSION['temp_user_email'] = $email;
+            $_SESSION['temp_user_name'] = $name;
+            $_SESSION['temp_user_picture'] = $picture;
 
-        // 🔁 Redirigir a inicio.php
-        header('Location: inicio.php');
-        exit;
+            // 🔁 Redirigir a configurar contraseña
+            header('Location: configurar_password.php');
+            exit;
+        }
 
     } catch (Exception $e) {
         die('Error en el proceso: ' . htmlspecialchars($e->getMessage()));

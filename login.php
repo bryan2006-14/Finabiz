@@ -9,35 +9,21 @@ if ($_POST) {
     $password = $_POST['password'];
 
     try {
-        // Preparamos la consulta con parámetros
         $stmt = $connection->prepare("SELECT id_usuario, nombre, password, foto_perfil FROM usuarios WHERE correo = :correo");
         $stmt->execute([':correo' => $email]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($row) {
-            $password_bd = $row['password'];
-
-            // ✅ VERIFICACIÓN MEJORADA - Permite login a usuarios de Google
-            $login_valid = false;
-            
-            if ($password_bd === '') {
-                // Usuario de Google con password vacío - permitir configurar
-                $error_message = "Usuario registrado con Google. Si quieres usar email/password, primero configura una contraseña en tu perfil.";
-            } 
-            // Primero verificar si coincide en texto plano (para usuarios existentes)
-            else if ($password_bd === $password) {
-                $login_valid = true;
+            // ✅ SOLUCIÓN SIMPLE - Redirigir usuarios de Google automáticamente
+            if ($row['password'] === '') {
+                header('Location: social_login.php?provider=google');
+                exit;
             }
-            // Luego verificar con password_verify (para usuarios nuevos/encriptados)
-            else if (password_verify($password, $password_bd)) {
-                $login_valid = true;
-            }
-
-            if ($login_valid) {
+            // Verificar contraseña normal
+            else if ($row['password'] === $password || password_verify($password, $row['password'])) {
                 $_SESSION['nombre'] = $row['nombre'];
                 $_SESSION['id_usuario'] = $row['id_usuario'];
                 $_SESSION['foto_perfil'] = $row['foto_perfil'];
-
                 header('Location: inicio.php');
                 exit;
             } else {
