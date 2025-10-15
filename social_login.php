@@ -8,7 +8,6 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/config/oauth_config.php';
 require_once __DIR__ . '/modelo/conexion.php';
 
-// Asegurar conexión a la base de datos
 if (!isset($connection)) {
     die("Error: No se pudo establecer conexión a la base de datos.");
 }
@@ -61,8 +60,8 @@ if (isset($_GET['code'])) {
             $update->execute();
             
         } else {
-            // 🆕 Crear nuevo usuario CON password (generamos uno aleatorio que nadie conocerá)
-            $random_password = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
+            // 🆕 Crear nuevo usuario CON PASSWORD ENCRIPTADO
+            $auto_password = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
             
             $insert = $connection->prepare("
                 INSERT INTO usuarios (nombre, correo, foto_perfil, password) 
@@ -71,7 +70,7 @@ if (isset($_GET['code'])) {
             $insert->bindParam(':nombre', $name);
             $insert->bindParam(':email', $email);
             $insert->bindParam(':foto', $picture);
-            $insert->bindParam(':password', $random_password);
+            $insert->bindParam(':password', $auto_password);
             $insert->execute();
             $user_id = (int)$connection->lastInsertId();
         }
@@ -91,7 +90,6 @@ if (isset($_GET['code'])) {
     }
 }
 
-// 🚨 Si no aplica ninguna condición, redirigir al index
 header('Location: index.php');
 exit;
 ?>

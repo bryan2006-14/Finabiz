@@ -17,8 +17,8 @@ if ($_POST) {
         if ($row) {
             $password_bd = $row['password'];
 
-            // ⚠️ Por ahora comparas en texto plano, pero lo ideal es usar password_hash()
-            if ($password_bd === $password) {
+            // ✅ CORREGIR: Verificar de ambas formas
+            if ($password_bd === $password || password_verify($password, $password_bd)) {
                 $_SESSION['nombre'] = $row['nombre'];
                 $_SESSION['id_usuario'] = $row['id_usuario'];
                 $_SESSION['foto_perfil'] = $row['foto_perfil'];
