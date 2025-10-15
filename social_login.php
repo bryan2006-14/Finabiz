@@ -60,20 +60,20 @@ if (isset($_GET['code'])) {
             $update->execute();
             
         } else {
-            // 🆕 Crear nuevo usuario CON PASSWORD ENCRIPTADO
-            $auto_password = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
-            
-            $insert = $connection->prepare("
-                INSERT INTO usuarios (nombre, correo, foto_perfil, password) 
-                VALUES (:nombre, :email, :foto, :password)
-            ");
-            $insert->bindParam(':nombre', $name);
-            $insert->bindParam(':email', $email);
-            $insert->bindParam(':foto', $picture);
-            $insert->bindParam(':password', $auto_password);
-            $insert->execute();
-            $user_id = (int)$connection->lastInsertId();
-        }
+    // 🆕 Crear nuevo usuario CON PASSWORD ENCRIPTADO
+    $auto_password = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
+    
+    $insert = $connection->prepare("
+        INSERT INTO usuarios (nombre, correo, foto_perfil, password) 
+        VALUES (:nombre, :email, :foto, :password)
+    ");
+    $insert->bindParam(':nombre', $name);
+    $insert->bindParam(':email', $email);
+    $insert->bindParam(':foto', $picture);
+    $insert->bindParam(':password', $auto_password);
+    $insert->execute();
+    $user_id = (int)$connection->lastInsertId();
+}
 
         // ✅ Guardar sesión
         $_SESSION['id_usuario'] = $user_id;

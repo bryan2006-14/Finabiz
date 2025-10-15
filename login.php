@@ -17,15 +17,28 @@ if ($_POST) {
         if ($row) {
             $password_bd = $row['password'];
 
-            // ✅ CORREGIR: Verificar de ambas formas
-            if ($password_bd === $password || password_verify($password, $password_bd)) {
+            // ✅ VERIFICACIÓN MEJORADA - Sin problemas de NULL
+            if ($password_bd === '') {
+                // Usuario de Google (password vacío)
+                $error_message = "Este usuario se registró con Google. Por favor inicia sesión con el botón 'Continuar con Google'";
+            } 
+            else if ($password_bd === $password) {
+                // Login con contraseña en texto plano (usuarios existentes)
                 $_SESSION['nombre'] = $row['nombre'];
                 $_SESSION['id_usuario'] = $row['id_usuario'];
                 $_SESSION['foto_perfil'] = $row['foto_perfil'];
-
                 header('Location: inicio.php');
                 exit;
-            } else {
+            }
+            else if (password_verify($password, $password_bd)) {
+                // Login con contraseña encriptada (usuarios nuevos)
+                $_SESSION['nombre'] = $row['nombre'];
+                $_SESSION['id_usuario'] = $row['id_usuario'];
+                $_SESSION['foto_perfil'] = $row['foto_perfil'];
+                header('Location: inicio.php');
+                exit;
+            }
+            else {
                 $error_message = "La contraseña no coincide";
             }
         } else {
