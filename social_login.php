@@ -44,7 +44,7 @@ if (isset($_GET['code'])) {
         }
 
         // 🚨 Verificar si el usuario ya existe
-        $stmt = $connection->prepare("SELECT id_usuario, foto_perfil FROM usuarios WHERE correo = :email");
+        $stmt = $connection->prepare("SELECT id_usuario, foto_perfil, password FROM usuarios WHERE correo = :email");
         $stmt->bindParam(':email', $email);
         $stmt->execute();
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -53,22 +53,25 @@ if (isset($_GET['code'])) {
             // ✅ Usuario existente
             $user_id = (int)$user['id_usuario'];
 
-            // Actualizar foto si está vacía
-            if (empty($user['foto_perfil']) && $picture) {
-                $update = $connection->prepare("UPDATE usuarios SET foto_perfil = :foto WHERE id_usuario = :id");
-                $update->bindParam(':foto', $picture);
-                $update->bindParam(':id', $user_id);
-                $update->execute();
-            }
+            // Actualizar foto y nombre si es necesario
+            $update = $connection->prepare("UPDATE usuarios SET nombre = :nombre, foto_perfil = :foto WHERE id_usuario = :id");
+            $update->bindParam(':nombre', $name);
+            $update->bindParam(':foto', $picture);
+            $update->bindParam(':id', $user_id);
+            $update->execute();
+            
         } else {
-            // 🆕 Crear nuevo usuario
+            // 🆕 Crear nuevo usuario CON password (generamos uno aleatorio que nadie conocerá)
+            $random_password = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
+            
             $insert = $connection->prepare("
-                INSERT INTO usuarios (nombre, correo, foto_perfil, created_via_social) 
-                VALUES (:nombre, :email, :foto, TRUE)
+                INSERT INTO usuarios (nombre, correo, foto_perfil, password) 
+                VALUES (:nombre, :email, :foto, :password)
             ");
             $insert->bindParam(':nombre', $name);
             $insert->bindParam(':email', $email);
             $insert->bindParam(':foto', $picture);
+            $insert->bindParam(':password', $random_password);
             $insert->execute();
             $user_id = (int)$connection->lastInsertId();
         }
