@@ -225,6 +225,7 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
             display: flex;
             justify-content: center;
             align-items: center;
+            position: relative;
         }
 
         #ad-container > div {
@@ -233,42 +234,43 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
             display: flex;
             flex-direction: column;
             border-radius: 16px;
+            position: relative;
         }
 
         #ad-container img {
             width: 100%;
-            height: 60%;
+            height: 100%;
             object-fit: cover;
-            border-radius: 16px 16px 0 0;
+            border-radius: 16px;
         }
 
-        #ad-container .ad-content {
-            padding: 2rem;
-            flex: 1;
+        .ad-content {
+            position: absolute;
+            bottom: 30px;
+            left: 0;
+            right: 0;
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
-            background: white;
-            border-radius: 0 0 16px 16px;
+            z-index: 10;
         }
 
-        .info-content h1 {
-            font-size: 2rem;
-            font-weight: 900;
-            margin-bottom: 1rem;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-align: center;
+        .ad-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: #fff;
+            padding: 14px 32px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,123,255,0.3);
         }
 
-        .info-content p {
-            font-size: 1rem;
-            color: var(--gray-600);
-            margin-bottom: 1.5rem;
-            text-align: center;
+        .ad-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,123,255,0.4);
         }
 
         /* Chatbot Container */
@@ -939,21 +941,10 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
             <!-- Panel de información -->
             <div class="chat-info-panel">
                 <div id="ad-container">
-                  <div>
+                  <div >
                    <img src="trii.gif" alt="Trii Gif" loading="lazy">
                     <div class="ad-content">
-                      <a href="https://trii.pe/" target="_blank" style="
-                        display:inline-block;
-                        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-                        color:#fff;
-                        padding:14px 32px;
-                        border-radius:12px;
-                        text-decoration:none;
-                        font-weight: 600;
-                        font-size: 16px;
-                        transition: transform 0.3s ease, box-shadow 0.3s ease;
-                        box-shadow: 0 4px 12px rgba(0,123,255,0.3);
-                      " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(0,123,255,0.4)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(0,123,255,0.3)';">Conoce más</a>
+                      <a href="https://trii.pe/" target="_blank" class="ad-button">Conoce más</a>
                     </div>
                   </div>
                 </div>

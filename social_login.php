@@ -35,11 +35,22 @@ if (isset($_GET['code'])) {
         $email = $userInfo->email;
         $name = $userInfo->name;
 
-        // 📸 Si no tiene imagen, generamos un avatar con inicial
+        // 📸 Manejo robusto de imagen de perfil
         $picture = $userInfo->picture ?? '';
         if (empty($picture)) {
-            $nameEncoded = urlencode($name ?: 'Usuario');
-            $picture = "https://ui-avatars.com/api/?name={$nameEncoded}&background=0D8ABC&color=fff&size=128";
+            // Generar avatar con iniciales si no hay imagen de Google
+            $initials = 'U'; // Por defecto 'U' de Usuario
+            if (!empty($name)) {
+                $nameParts = explode(' ', $name);
+                $initials = '';
+                foreach ($nameParts as $part) {
+                    if (!empty($part)) {
+                        $initials .= strtoupper(substr($part, 0, 1));
+                        if (strlen($initials) >= 2) break;
+                    }
+                }
+            }
+            $picture = "https://ui-avatars.com/api/?name=" . urlencode($initials) . "&background=0D8ABC&color=fff&size=128&length=2";
         }
 
         // 🚨 Verificar si el usuario ya existe
@@ -49,15 +60,30 @@ if (isset($_GET['code'])) {
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user) {
-            // ✅ Usuario existente
+            // ✅ Usuario existente - actualizar datos
             $user_id = (int)$user['id_usuario'];
 
-            // Actualizar foto y nombre si es necesario
-            $update = $connection->prepare("UPDATE usuarios SET nombre = :nombre, foto_perfil = :foto WHERE id_usuario = :id");
-            $update->bindParam(':nombre', $name);
-            $update->bindParam(':foto', $picture);
-            $update->bindParam(':id', $user_id);
-            $update->execute();
+            // Solo actualizar si la foto actual está vacía o es la por defecto
+            $current_photo = $user['foto_perfil'] ?? '';
+            $should_update_photo = empty($current_photo) || 
+                                 strpos($current_photo, 'ui-avatars.com') !== false ||
+                                 strpos($current_photo, 'default-avatar.png') !== false;
+
+            if ($should_update_photo) {
+                $update = $connection->prepare("UPDATE usuarios SET nombre = :nombre, foto_perfil = :foto WHERE id_usuario = :id");
+                $update->bindParam(':nombre', $name);
+                $update->bindParam(':foto', $picture);
+                $update->bindParam(':id', $user_id);
+                $update->execute();
+            } else {
+                // Solo actualizar el nombre
+                $update = $connection->prepare("UPDATE usuarios SET nombre = :nombre WHERE id_usuario = :id");
+                $update->bindParam(':nombre', $name);
+                $update->bindParam(':id', $user_id);
+                $update->execute();
+                // Usar la foto existente
+                $picture = $current_photo;
+            }
             
         } else {
             // 🆕 Crear nuevo usuario CON PASSWORD ENCRIPTADO
@@ -71,8 +97,12 @@ if (isset($_GET['code'])) {
             $insert->bindParam(':email', $email);
             $insert->bindParam(':foto', $picture);
             $insert->bindParam(':password', $auto_password);
-            $insert->execute();
-            $user_id = (int)$connection->lastInsertId();
+            
+            if ($insert->execute()) {
+                $user_id = (int)$connection->lastInsertId();
+            } else {
+                throw new Exception("Error al crear nuevo usuario: " . implode(", ", $insert->errorInfo()));
+            }
         }
 
         // ✅ Guardar sesión
@@ -81,15 +111,22 @@ if (isset($_GET['code'])) {
         $_SESSION['foto_perfil'] = $picture;
         $_SESSION['google_logged_in'] = true;
 
-        // 🔁 Redirigir a inicio.php
+        // 🎯 Marcar para mostrar publicidad en la próxima carga
+        $_SESSION['show_ad'] = true;
+
+        // 🔁 Redirigir a inicio.php (SOLO UNA VEZ)
         header('Location: inicio.php');
         exit;
 
     } catch (Exception $e) {
-        die('Error en el proceso: ' . htmlspecialchars($e->getMessage()));
+        error_log("Error en social login: " . $e->getMessage());
+        // Redirigir a página de error o login con mensaje
+        header('Location: index.php?error=social_login_failed');
+        exit;
     }
 }
 
+// Si no es un callback de Google, redirigir al inicio
 header('Location: index.php');
 exit;
 ?>

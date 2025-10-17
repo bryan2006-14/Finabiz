@@ -1,5 +1,12 @@
 <?php
 session_start();
+// Verificar si debemos mostrar el modal
+$showAd = isset($_SESSION['show_ad']) && $_SESSION['show_ad'];
+if ($showAd) {
+    // Eliminar la flag para que no se muestre en cada recarga
+    unset($_SESSION['show_ad']);
+}
+
 if (!isset($_SESSION['id_usuario'])) {
     header("Location:index.php");
     exit();
@@ -483,6 +490,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         <?php endif; ?>
+
+         <!-- Modal de Publicidad Permanente -->
+            <div id="ad-modal" class="ad-modal">
+            <div class="ad-modal-content">
+        <span class="ad-close-btn" id="ad-close-btn">&times;</span>
+        
+        <div class="ad-container">
+            <div class="ad-main-content">
+                <img src="trii.gif" alt="Trii Gif" class="ad-gif" loading="lazy">
+                <div class="ad-content">
+                    <h3>¡Bienvenido a Nuestra Plataforma!</h3>
+                    <p>Descubre todo lo que Trii tiene para ofrecerte. Una experiencia única te espera.</p>
+                    <a href="https://trii.pe/" target="_blank" class="ad-button">Descubrir Trii</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
         <!-- Welcome Banner -->
         <div class="welcome-banner">
@@ -1536,5 +1561,268 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
         `;
         document.head.appendChild(style);
     </script>
+    <style>
+        /* Modal de Publicidad Permanente */
+.ad-modal {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.95);
+    animation: fadeIn 0.6s ease-out;
+}
+
+.ad-modal-content {
+    position: relative;
+    margin: 1% auto;
+    width: 95%;
+    height: 98%;
+    max-width: 1400px;
+    background: linear-gradient(135deg, #0c0c0c 0%, #1a1a1a 50%, #2d2d2d 100%);
+    border-radius: 25px;
+    box-shadow: 0 15px 60px rgba(0, 0, 0, 0.9);
+    overflow: hidden;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    animation: modalSlideIn 0.7s ease-out;
+}
+
+.ad-close-btn {
+    position: absolute;
+    top: 25px;
+    right: 30px;
+    font-size: 40px;
+    font-weight: bold;
+    color: #fff;
+    cursor: pointer;
+    z-index: 10000;
+    background: rgba(255, 0, 0, 0.7);
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.ad-close-btn:hover {
+    background: rgba(255, 0, 0, 0.9);
+    transform: scale(1.15) rotate(90deg);
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.6);
+}
+
+.ad-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 50px;
+}
+
+.ad-main-content {
+    text-align: center;
+    color: white;
+    max-width: 900px;
+}
+
+.ad-gif {
+    max-width: 500px;
+    width: 100%;
+    height: auto;
+    border-radius: 20px;
+    margin-bottom: 40px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+    border: 3px solid rgba(255, 255, 255, 0.1);
+}
+
+.ad-content h3 {
+    font-size: 3em;
+    margin-bottom: 20px;
+    color: #fff;
+    text-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+    background: linear-gradient(45deg, #fff, #FF8E53);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.ad-content p {
+    font-size: 1.5em;
+    margin-bottom: 40px;
+    color: #ddd;
+    line-height: 1.6;
+}
+
+.ad-button {
+    display: inline-block;
+    padding: 18px 50px;
+    background: linear-gradient(45deg, #FF6B35, #FF8E53, #FF6B35);
+    background-size: 200% 200%;
+    color: white;
+    text-decoration: none;
+    border-radius: 60px;
+    font-size: 1.3em;
+    font-weight: bold;
+    transition: all 0.4s ease;
+    box-shadow: 0 8px 30px rgba(255, 107, 53, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    animation: gradientShift 3s ease infinite;
+}
+
+.ad-button:hover {
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 0 12px 40px rgba(255, 107, 53, 0.7);
+    background-position: right center;
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes modalSlideIn {
+    from { 
+        opacity: 0;
+        transform: scale(0.9) translateY(-50px);
+    }
+    to { 
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Efectos de partículas de fondo */
+.ad-modal-content::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 20% 80%, rgba(255, 107, 53, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 142, 83, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .ad-modal-content {
+        width: 98%;
+        height: 98%;
+        margin: 1% auto;
+    }
+    
+    .ad-container {
+        padding: 30px;
+    }
+    
+    .ad-gif {
+        max-width: 400px;
+    }
+    
+    .ad-content h3 {
+        font-size: 2.5em;
+    }
+    
+    .ad-content p {
+        font-size: 1.3em;
+    }
+}
+
+@media (max-width: 768px) {
+    .ad-modal-content {
+        border-radius: 15px;
+    }
+    
+    .ad-container {
+        padding: 20px;
+    }
+    
+    .ad-gif {
+        max-width: 300px;
+        margin-bottom: 30px;
+    }
+    
+    .ad-content h3 {
+        font-size: 2em;
+    }
+    
+    .ad-content p {
+        font-size: 1.1em;
+    }
+    
+    .ad-button {
+        padding: 15px 35px;
+        font-size: 1.1em;
+    }
+    
+    .ad-close-btn {
+        top: 15px;
+        right: 20px;
+        width: 45px;
+        height: 45px;
+        font-size: 35px;
+    }
+}
+</style>
+<script>
+  // Modal de publicidad permanente
+document.addEventListener('DOMContentLoaded', function() {
+    const adModal = document.getElementById('ad-modal');
+    const closeBtn = document.getElementById('ad-close-btn');
+
+    // Mostrar modal inmediatamente al cargar la página
+    function showAdModal() {
+        adModal.style.display = 'block';
+        
+        // Opcional: Guardar en sessionStorage para no mostrar muy frecuentemente
+        sessionStorage.setItem('adLastShown', new Date().getTime());
+    }
+
+    function closeAdModal() {
+        // Animación de salida
+        adModal.style.opacity = '0';
+        adModal.style.transform = 'scale(1.1)';
+        
+        setTimeout(() => {
+            adModal.style.display = 'none';
+        }, 400);
+    }
+
+    // Mostrar el modal (puedes controlar cuándo mostrarlo)
+    showAdModal();
+
+    // Event listeners
+    closeBtn.addEventListener('click', closeAdModal);
+
+    // Cerrar al hacer click fuera del contenido
+    adModal.addEventListener('click', function(e) {
+        if (e.target === adModal) {
+            closeAdModal();
+        }
+    });
+
+    // Cerrar con tecla ESC
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && adModal.style.display === 'block') {
+            closeAdModal();
+        }
+    });
+});
+</script>
 </body>
-</html>
+</html> 
