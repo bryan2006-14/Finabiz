@@ -278,7 +278,7 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                     <img src="<?php echo htmlspecialchars($rutaFotoPerfil); ?>" alt="Foto de perfil" loading="lazy">
                 </div>
                 <a href="modelo/logout.php" class="logout-btn">
-                    <i class="fas fa-sign-out-alt"></i>
+                    <i class="fas fa-sign-out-alt"></i> Salir
                 </a>
             </div>
         </div>
@@ -654,5 +654,27 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
             }
         }
     </script>
+        <style>        .logout-btn {
+            background: var(--danger);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(239, 68, 68, 0.3);
+            background: #dc2626;
+            color: white;
+        }
+</style>
 </body>
 </html>
