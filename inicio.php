@@ -3,7 +3,6 @@ session_start();
 // Verificar si debemos mostrar el modal
 $showAd = isset($_SESSION['show_ad']) && $_SESSION['show_ad'];
 if ($showAd) {
-    // Eliminar la flag para que no se muestre en cada recarga
     unset($_SESSION['show_ad']);
 }
 
@@ -26,7 +25,6 @@ $dbname = "db_finanzas_fxs9";
 $user = "db_finanzas_fxs9_user"; 
 $password = "MzArnjJx2t87VeEF1Cr03C35Qv3M49CU"; 
 
-// Función optimizada para conectar a PostgreSQL
 function conectarPostgreSQL($host, $port, $dbname, $user, $password) {
     try {
         $dsn = "pgsql:host=$host;port=$port;dbname=$dbname;";
@@ -34,7 +32,7 @@ function conectarPostgreSQL($host, $port, $dbname, $user, $password) {
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
-            PDO::ATTR_PERSISTENT => true // Conexión persistente para mejor rendimiento
+            PDO::ATTR_PERSISTENT => true
         ]);
         return $connection;
     } catch (PDOException $e) {
@@ -53,19 +51,16 @@ $analisis_habitos = [];
 $resumen_habitos = [];
 
 if ($conexion_pdo) {
-    // Sistema de logros
     require_once 'modelo/logros.php';
     $sistemaLogros = new SistemaLogros($conexion_pdo);
     $sistemaLogros->verificarLogros($_SESSION['id_usuario']);
     $logros_usuario = $sistemaLogros->getLogrosUsuario($_SESSION['id_usuario'], 5);
     $sistemaLogros->marcarLogrosComoVistos($_SESSION['id_usuario']);
     
-    // Sistema de alertas
     require_once 'modelo/alertas.php';
     $sistemaAlertas = new AlertasInteligentes($conexion_pdo);
     $alertas = $sistemaAlertas->generarAlertas($_SESSION['id_usuario']);
     
-    // Sistema de hábitos
     require_once 'modelo/habitos.php';
     $analisisHabitos = new AnalisisHabitos($conexion_pdo);
     $habitos_semana = $analisisHabitos->getHabitosSemana($_SESSION['id_usuario']);
@@ -100,7 +95,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
         $stmt = $conexion_pdo->prepare($sql);
         $stmt->execute([':monto' => $monto, ':id_meta' => $id_meta, ':id_usuario' => $id_usuario]);
         
-        // Verificar si se completó
         $sql_check = "SELECT monto_actual, meta_total FROM metas WHERE id_meta = :id_meta";
         $stmt_check = $conexion_pdo->prepare($sql_check);
         $stmt_check->execute([':id_meta' => $id_meta]);
@@ -145,15 +139,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-    <meta name="theme-color" content="#4f46e5">
+    <meta name="theme-color" content="#6366f1">
     <link rel="shortcut icon" href="icono-ic.png" type="image/x-icon">
-    
-    <!-- Preconnect para mejorar velocidad -->
-    <link rel="preconnect" href="https://cdn.jsdelivr.net">
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    
     <!-- CSS Crítico inline -->
     <style>
         :root{--primary:#4f46e5;--primary-light:#6366f1;--success:#10b981;--danger:#ef4444;--warning:#f59e0b;--info:#06b6d4;--gray-50:#f9fafb;--gray-100:#f3f4f6;--gray-200:#e5e7eb;--gray-300:#d1d5db;--gray-400:#9ca3af;--gray-500:#6b7280;--gray-600:#4b5563;--gray-700:#374151;--gray-800:#1f2937;--gray-900:#111827;--sidebar-width:260px}*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;color:var(--gray-800);overflow-x:hidden}
@@ -162,238 +149,858 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
     <!-- CSS externo con defer -->
     <link rel="stylesheet" href="css/inicio/inicio.css" media="print" onload="this.media='all'">
     
-    <!-- Fonts con display=swap para mejor rendimiento -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     
-    <!-- Bootstrap CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <title>Inicio - ControlGastos</title>
+    <title>Panel de Control - ControlGastos</title>
     
-    <!-- CSS Responsivo Completo -->
-    <link rel="stylesheet" href="data:text/css;base64,<?php echo base64_encode('
-/* CSS COMPLETO RESPONSIVO OPTIMIZADO */
-.sidebar{position:fixed;top:0;left:0;width:var(--sidebar-width);height:100vh;background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);border-right:1px solid var(--gray-200);padding:2rem 0;z-index:1000;overflow-y:auto;transition:all 0.3s ease}
-.brand-logo{width:100%;height:110px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;padding:12px 18px}
-.brand-logo-img{max-width:90%;max-height:100%;object-fit:contain}
-.nav-section{margin-bottom:1.5rem;padding:0 1rem}
-.nav-title{color:var(--gray-500);font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;padding:0 1rem}
-.nav-link{display:flex;align-items:center;gap:12px;padding:12px 1rem;margin:2px 0;color:var(--gray-600);text-decoration:none;border-radius:8px;transition:all 0.3s ease;font-weight:500}
-.nav-link:hover{background:var(--gray-100);color:var(--gray-800)}
-.nav-link.active{background:var(--primary);color:white}
-.nav-link i{width:20px;font-size:18px}
-.main-content{margin-left:var(--sidebar-width);padding:2rem;min-height:100vh;transition:margin-left 0.3s ease}
-.header{display:flex;justify-content:space-between;align-items:center;background:white;padding:1.5rem 2rem;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1);margin-bottom:2rem;flex-wrap:wrap;gap:1rem}
-.page-title{font-size:2rem;font-weight:700;color:var(--gray-800)}
-.user-info{display:flex;align-items:center;gap:1rem}
-.user-name{font-weight:600;color:var(--gray-700)}
-.user-avatar img{width:40px;height:40px;border-radius:50%;object-fit:cover}
-.logout-btn{color:var(--gray-500);text-decoration:none;padding:8px;border-radius:50%;transition:all 0.3s ease}
-.logout-btn:hover{background:var(--gray-100);color:var(--danger)}
-.welcome-banner{background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 100%);color:white;padding:2rem;border-radius:12px;margin-bottom:2rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
-.welcome-banner i{font-size:2rem}
-.welcome-text{font-size:1.25rem;font-weight:600}
-.welcome-text span{color:#fbbf24}
-.chart-section{background:white;padding:2rem;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);margin-bottom:2rem}
-.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem}
-.section-header h2,.section-header h3{font-size:1.5rem;font-weight:700;color:#1f2937;margin:0}
-.chart-controls{display:flex;gap:0.5rem}
-.chart-btn{background:#f3f4f6;border:none;padding:0.5rem;border-radius:8px;cursor:pointer;transition:all 0.3s ease;min-width:40px;height:40px;display:flex;align-items:center;justify-content:center}
-.chart-btn:hover{transform:scale(1.05)}
-.chart-btn.active{background:#4f46e5;color:white}
-.chart-container{height:400px;position:relative}
-.alertas-section{margin-bottom:2rem}
-.alertas-container{display:flex;flex-direction:column;gap:0.5rem}
-.alerta-item{display:flex;align-items:center;gap:1rem;padding:1rem;border-radius:8px;background:white;box-shadow:0 2px 4px rgba(0,0,0,0.1);transition:all 0.3s ease}
-.alerta-item:hover{transform:translateX(5px);box-shadow:0 4px 8px rgba(0,0,0,0.15)}
-.alerta-icono{font-size:1.5rem;flex-shrink:0}
-.alerta-mensaje{flex:1;font-size:0.95rem}
-.alerta-cerrar{background:none;border:none;font-size:1.2rem;cursor:pointer;color:#6b7280;flex-shrink:0}
-.alerta-peligro{border-left:4px solid #ef4444;background:linear-gradient(90deg,#fef2f2,white)}
-.alerta-advertencia{border-left:4px solid #f59e0b;background:linear-gradient(90deg,#fffbeb,white)}
-.alerta-exito{border-left:4px solid #10b981;background:linear-gradient(90deg,#ecfdf5,white)}
-.alerta-info{border-left:4px solid #3b82f6;background:linear-gradient(90deg,#eff6ff,white)}
-.habitos-section{background:white;padding:2rem;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);margin-bottom:2rem}
-.chart-bars{display:flex;align-items:end;gap:0.5rem;height:200px;padding:1rem;background:#f8fafc;border-radius:8px;overflow-x:auto}
-.bar-container{display:flex;flex-direction:column;align-items:center;flex:1;min-width:60px}
-.bar{width:80%;border-radius:4px 4px 0 0;position:relative;transition:all 0.3s ease}
-.bar-value{position:absolute;top:-25px;left:50%;transform:translateX(-50%);font-size:0.75rem;font-weight:600;color:#374151;white-space:nowrap}
-.bar-label{margin-top:0.5rem;font-weight:600;color:#374151;font-size:0.875rem}
-.bar-tendencia{font-size:0.75rem}
-.analisis-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem}
-.analisis-item{padding:1rem;background:#f0f9ff;border-radius:8px;border-left:4px solid #3b82f6;font-size:0.95rem}
-.resumen-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem}
-.resumen-item{text-align:center;padding:1rem;border-radius:8px}
-.goals-achievements-section{display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-bottom:2rem}
-.achievements-card,.goals-card{background:white;padding:1.5rem;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
-.add-btn{background:#4f46e5;color:white;border:none;padding:0.5rem 1rem;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:0.5rem;font-size:0.875rem;transition:all 0.3s ease}
-.add-btn:hover{background:#4338ca;transform:translateY(-2px)}
-.meta-item{margin-bottom:1.5rem;padding:1rem;background:#f9fafb;border-radius:8px;transition:all 0.3s ease}
-.meta-action-btn{background:none;border:none;cursor:pointer;padding:0.25rem 0.5rem;border-radius:4px;transition:all 0.3s ease}
-.meta-action-btn:hover{transform:scale(1.1)}
-.cards-container{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:1.5rem;margin-bottom:2rem}
-.card{background:white;padding:1.5rem;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1);position:relative;overflow:hidden;transition:transform 0.3s ease}
-.card:hover{transform:translateY(-2px)}
-.card::before{content:"";position:absolute;top:0;left:0;right:0;height:4px}
-.card-income::before{background:var(--success)}
-.card-expense::before{background:var(--danger)}
-.card-budget::before{background:var(--primary)}
-.card-savings::before{background:var(--warning)}
-.card-content h3{color:var(--gray-500);font-size:0.875rem;font-weight:600;margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.05em}
-.amount{font-size:2rem;font-weight:700;color:var(--gray-800);margin-bottom:0.5rem}
-.card-trend{display:flex;align-items:center;gap:0.5rem;font-size:0.875rem;flex-wrap:wrap}
-.trend-up{color:var(--success);font-weight:600}
-.trend-down{color:var(--danger);font-weight:600}
-.trend-text{color:var(--gray-500)}
-.card-icon{position:absolute;top:1.5rem;right:1.5rem;width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:white;opacity:0.8}
-.card-income .card-icon{background:var(--success)}
-.card-expense .card-icon{background:var(--danger)}
-.card-budget .card-icon{background:var(--primary)}
-.card-savings .card-icon{background:var(--warning)}
-.expenses-section{background:white;padding:2rem;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1);margin-bottom:2rem}
-.expenses-grid{display:grid;gap:1rem;margin-top:1.5rem}
-.expense-item{display:flex;align-items:center;gap:1rem;padding:1rem;background:var(--gray-50);border-radius:8px;transition:all 0.3s ease}
-.expense-item:hover{background:white;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
-.expense-icon{width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-size:1rem;flex-shrink:0}
-.expense-icon.food{background:var(--warning)}
-.expense-icon.transport{background:var(--info)}
-.expense-icon.entertainment{background:#8b5cf6}
-.expense-icon.health{background:var(--danger)}
-.expense-info{flex:1;min-width:0}
-.expense-category{font-weight:600;color:var(--gray-800);display:block;margin-bottom:0.25rem}
-.expense-amount{color:var(--gray-600);font-size:0.875rem}
-.expense-bar{background:var(--gray-200);height:4px;border-radius:2px;margin-top:0.5rem;overflow:hidden}
-.expense-fill{height:100%;background:var(--primary);border-radius:2px;transition:width 0.6s ease}
-.expense-percentage{font-weight:600;color:var(--primary);font-size:0.875rem;flex-shrink:0}
-.chatbot-container{position:fixed;bottom:20px;right:20px;width:350px;height:500px;background:white;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,0.15);display:none;flex-direction:column;z-index:1001;opacity:0;transform:translateY(20px);transition:all 0.3s ease}
-.chatbot-header{background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 100%);color:white;padding:1rem 1.25rem;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center}
-.bot-info{display:flex;align-items:center;gap:0.75rem}
-.bot-avatar{position:relative;width:36px;height:36px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center}
-.avatar-status{position:absolute;bottom:0;right:0;width:8px;height:8px;background:#10b981;border:2px solid #4f46e5;border-radius:50%}
-.bot-name{font-weight:600;font-size:0.875rem}
-.bot-status{font-size:0.75rem;opacity:0.9}
-.chatbot-controls{display:flex;gap:0.25rem}
-.control-btn{background:rgba(255,255,255,0.2);border:none;color:white;width:28px;height:28px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.3s ease}
-.chatbot-body{display:flex;flex-direction:column;flex:1;overflow:hidden}
-.chat-suggestions{padding:1rem;border-bottom:1px solid var(--gray-200);display:flex;flex-direction:column;gap:0.5rem;background:var(--gray-50)}
-.suggestion{display:flex;align-items:center;gap:0.5rem;padding:0.75rem;background:white;border-radius:8px;cursor:pointer;transition:all 0.3s ease;font-size:0.875rem;color:var(--gray-700);border:1px solid var(--gray-200)}
-.suggestion:hover{background:var(--primary);color:white;transform:translateX(2px)}
-.chat-messages{flex:1;overflow-y:auto;padding:1rem;background:var(--gray-50);display:flex;flex-direction:column;gap:1rem}
-.message{display:flex;gap:0.5rem;align-items:flex-end}
-.user-message{flex-direction:row-reverse}
-.message-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.bot-message .message-avatar{background:var(--primary);color:white}
-.message-content{max-width:75%;background:white;padding:0.75rem 1rem;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
-.user-message .message-content{background:var(--primary);color:white}
-.message-content p{margin:0;font-size:0.875rem;line-height:1.5;word-wrap:break-word}
-.chat-input-area{border-top:1px solid var(--gray-200);padding:1rem;background:white;border-radius:0 0 16px 16px}
-.input-container{display:flex;gap:0.5rem;align-items:center;background:var(--gray-100);border-radius:20px;padding:0.5rem}
-#chat-input{flex:1;border:none;background:transparent;padding:0.5rem 0.75rem;font-size:0.875rem;outline:none}
-.send-button{background:var(--primary);border:none;color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.3s ease;flex-shrink:0}
-.chat-fab{position:fixed;bottom:20px;right:20px;width:60px;height:60px;background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 100%);color:white;border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.5rem;box-shadow:0 4px 15px rgba(79,70,229,0.4);transition:all 0.3s ease;z-index:1000}
-.notification{position:absolute;top:-4px;right:-4px;background:var(--danger);color:white;font-size:0.75rem;font-weight:600;padding:0.125rem 0.375rem;border-radius:10px;min-width:18px;height:18px;display:flex;align-items:center;justify-content:center;border:2px solid white}
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --primary-light: #818cf8;
+            --secondary: #ec4899;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --dark: #0f172a;
+            --dark-light: #1e293b;
+            --gray: #64748b;
+            --light: #f1f5f9;
+            --white: #ffffff;
+            --sidebar-width: 260px;
+        }
 
-/* MEDIA QUERIES RESPONSIVO */
-@media (max-width: 1024px){
-  .sidebar{width:220px}
-  .main-content{margin-left:220px;padding:1.5rem}
-  .cards-container{grid-template-columns:repeat(2,1fr)}
-  .goals-achievements-section{grid-template-columns:1fr}
-  .chart-container{height:350px}
-  .analisis-grid{grid-template-columns:1fr}
-}
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-@media (max-width: 768px){
-  .sidebar{position:fixed;left:-100%;width:220px;transition:left 0.3s ease;z-index:1100;box-shadow:2px 0 10px rgba(0,0,0,0.3)}
-  .sidebar.active{left:0}
-  .main-content{margin-left:0;padding:1rem}
-  .header{flex-direction:column;align-items:flex-start;padding:1rem}
-  .page-title{font-size:1.5rem;width:100%}
-  .user-info{width:100%;justify-content:space-between}
-  .welcome-banner{padding:1.25rem;flex-direction:column;text-align:center}
-  .chart-section{padding:1rem}
-  .section-header{flex-direction:column;align-items:flex-start}
-  .chart-controls{width:100%;justify-content:center}
-  .chart-container{height:300px}
-  .alerta-item{flex-direction:column;align-items:flex-start;gap:0.75rem;padding:0.875rem}
-  .alerta-cerrar{align-self:flex-end;position:absolute;top:0.5rem;right:0.5rem}
-  .chart-bars{height:180px;padding:0.75rem;gap:0.25rem}
-  .bar-container{min-width:50px}
-  .bar-value{font-size:0.65rem;top:-20px}
-  .bar-label{font-size:0.75rem}
-  .analisis-grid{grid-template-columns:1fr;gap:0.75rem}
-  .resumen-grid{grid-template-columns:1fr;gap:0.75rem}
-  .goals-achievements-section{grid-template-columns:1fr;gap:1rem}
-  .add-btn{width:100%;justify-content:center}
-  .cards-container{grid-template-columns:1fr;gap:1rem}
-  .expenses-grid{gap:0.75rem}
-  .expense-item{padding:0.875rem;flex-wrap:wrap}
-  .expense-info{order:2;width:100%;margin-top:0.5rem}
-  .expense-percentage{order:3}
-  .chatbot-container{width:calc(100vw - 20px);height:calc(100vh - 80px);max-height:600px;bottom:10px;right:10px;left:10px}
-  .chat-fab{width:56px;height:56px;font-size:1.35rem;bottom:15px;right:15px}
-}
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--dark);
+        }
 
-@media (max-width: 480px){
-  .main-content{padding:0.75rem}
-  .header{padding:0.875rem;border-radius:8px;margin-bottom:1rem}
-  .page-title{font-size:1.25rem}
-  .user-avatar img{width:36px;height:36px}
-  .welcome-banner{padding:1rem;border-radius:8px}
-  .welcome-text{font-size:0.9rem}
-  .chart-section,.habitos-section,.expenses-section{padding:0.875rem;border-radius:8px;margin-bottom:1rem}
-  .section-header h2,.section-header h3{font-size:1.1rem}
-  .chart-container{height:250px}
-  .chart-btn{min-width:36px;height:36px;padding:0.375rem}
-  .amount{font-size:1.5rem}
-  .card-content h3{font-size:0.8rem}
-  .card-icon{width:40px;height:40px;font-size:1.1rem;top:1rem;right:1rem}
-  .expense-icon{width:36px;height:36px;font-size:0.9rem}
-  .expense-category{font-size:0.875rem}
-  .expense-amount,.expense-percentage{font-size:0.8rem}
-  .chat-fab{width:52px;height:52px;font-size:1.25rem}
-}
+        /* SIDEBAR */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 2rem 0;
+            z-index: 1000;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+            box-shadow: 4px 0 20px rgba(0, 0, 0, 0.08);
+        }
 
-@media (max-width: 374px){
-  .page-title{font-size:1.1rem}
-  .welcome-text{font-size:0.85rem}
-  .section-header h2,.section-header h3{font-size:1rem}
-  .amount{font-size:1.35rem}
-  .chart-container{height:220px}
-  .bar-container{min-width:45px}
-}
+        .brand-logo {
+            width: 100%;
+            height: 90px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 2rem;
+            padding: 12px 18px;
+        }
 
-@media (min-width: 1440px){
-  .main-content{max-width:1600px;margin-left:auto;margin-right:auto;padding-left:calc(var(--sidebar-width) + 3rem)}
-  .cards-container{grid-template-columns:repeat(4,1fr)}
-  .chart-container{height:450px}
-}
+        .brand-logo-img {
+            max-width: 85%;
+            max-height: 100%;
+            object-fit: contain;
+        }
 
-@media (max-width: 1024px) and (orientation: landscape){
-  .chart-container{height:300px}
-  .chart-bars{height:180px}
-  .chatbot-container{width:400px;height:450px}
-}
+        .nav-section {
+            margin-bottom: 2rem;
+            padding: 0 1rem;
+        }
 
-@media (max-width: 767px) and (orientation: landscape){
-  .sidebar{width:180px}
-  .main-content{margin-left:180px;padding:1rem}
-  .brand-logo{height:70px}
-  .nav-link{padding:8px 0.75rem;font-size:0.75rem}
-  .cards-container{grid-template-columns:repeat(4,1fr);gap:0.75rem}
-  .goals-achievements-section{grid-template-columns:1fr 1fr;gap:1rem}
-}
-'); ?>">
+        .nav-title {
+            color: var(--gray);
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.75rem;
+            padding: 0 1rem;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 1.25rem;
+            margin: 4px 0;
+            color: var(--gray);
+            text-decoration: none;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        .nav-link:hover {
+            background: var(--light);
+            color: var(--primary);
+            transform: translateX(5px);
+        }
+
+        .nav-link.active {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
+        }
+
+        .nav-link i {
+            width: 22px;
+            font-size: 18px;
+        }
+
+        /* MAIN CONTENT */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 2rem;
+            min-height: 100vh;
+            transition: margin-left 0.3s ease;
+        }
+
+        /* HEADER */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 2rem;
+            border-radius: 20px;
+            margin-bottom: 2rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: slideDown 0.6s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .page-title {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--dark);
+            margin: 0;
+        }
+
+        .header-subtitle {
+            color: var(--gray);
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: var(--light);
+            padding: 0.75rem 1.25rem;
+            border-radius: 50px;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 3px solid var(--primary);
+        }
+
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .logout-btn {
+            background: var(--danger);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(239, 68, 68, 0.3);
+            background: #dc2626;
+            color: white;
+        }
+
+        /* WELCOME BANNER */
+        .welcome-banner {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            padding: 2.5rem;
+            border-radius: 20px;
+            margin-bottom: 2rem;
+            box-shadow: 0 20px 60px rgba(99, 102, 241, 0.3);
+            animation: fadeInUp 0.6s ease;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .welcome-banner i {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .welcome-text {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .welcome-text span {
+            color: #fbbf24;
+        }
+
+        /* STATS CARDS */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            animation: fadeInUp 0.6s ease forwards;
+        }
+
+        .stat-card:nth-child(1) { animation-delay: 0.1s; }
+        .stat-card:nth-child(2) { animation-delay: 0.2s; }
+        .stat-card:nth-child(3) { animation-delay: 0.3s; }
+        .stat-card:nth-child(4) { animation-delay: 0.4s; }
+
+        .stat-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.12);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: linear-gradient(90deg, var(--gradient-start), var(--gradient-end));
+        }
+
+        .stat-card.income { --gradient-start: #10b981; --gradient-end: #34d399; }
+        .stat-card.expense { --gradient-start: #ef4444; --gradient-end: #f87171; }
+        .stat-card.balance { --gradient-start: #6366f1; --gradient-end: #818cf8; }
+        .stat-card.savings { --gradient-start: #f59e0b; --gradient-end: #fbbf24; }
+
+        .stat-icon {
+            width: 65px;
+            height: 65px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            margin-bottom: 1.25rem;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: white;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .stat-label {
+            color: var(--gray);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.75rem;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--dark);
+            margin-bottom: 1rem;
+            line-height: 1;
+        }
+
+        .stat-trend {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .trend-positive {
+            color: var(--success);
+        }
+
+        .trend-negative {
+            color: var(--danger);
+        }
+
+        /* ALERTS SECTION */
+        .alerts-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+            margin-bottom: 2rem;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .alert-item {
+            display: flex;
+            align-items: start;
+            gap: 1.25rem;
+            padding: 1.5rem;
+            border-radius: 16px;
+            margin-bottom: 1rem;
+            border-left: 5px solid;
+            transition: all 0.3s ease;
+        }
+
+        .alert-item:hover {
+            transform: translateX(8px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+        }
+
+        .alert-danger {
+            background: linear-gradient(90deg, #fef2f2, white);
+            border-color: var(--danger);
+        }
+
+        .alert-warning {
+            background: linear-gradient(90deg, #fffbeb, white);
+            border-color: var(--warning);
+        }
+
+        .alert-success {
+            background: linear-gradient(90deg, #f0fdf4, white);
+            border-color: var(--success);
+        }
+
+        .alert-info {
+            background: linear-gradient(90deg, #eff6ff, white);
+            border-color: #3b82f6;
+        }
+
+        .alert-icon {
+            width: 45px;
+            height: 45px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            flex-shrink: 0;
+        }
+
+        .alert-danger .alert-icon {
+            background: var(--danger);
+            color: white;
+        }
+
+        .alert-warning .alert-icon {
+            background: var(--warning);
+            color: white;
+        }
+
+        .alert-success .alert-icon {
+            background: var(--success);
+            color: white;
+        }
+
+        .alert-info .alert-icon {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .alert-content {
+            flex: 1;
+        }
+
+        .alert-message {
+            color: var(--dark);
+            line-height: 1.6;
+            font-weight: 500;
+        }
+
+        .alert-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--gray);
+            font-size: 1.2rem;
+            padding: 0.25rem;
+            transition: all 0.3s ease;
+        }
+
+        .alert-close:hover {
+            color: var(--danger);
+            transform: scale(1.2);
+        }
+
+        /* CONTENT GRID */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        /* CHART SECTION */
+        .chart-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+        }
+
+        .chart-controls {
+            display: flex;
+            gap: 0.5rem;
+            background: var(--light);
+            padding: 0.5rem;
+            border-radius: 12px;
+        }
+
+        .chart-btn {
+            background: transparent;
+            border: none;
+            padding: 0.75rem 1.25rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--gray);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .chart-btn:hover {
+            background: white;
+            color: var(--primary);
+        }
+
+        .chart-btn.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .chart-container {
+            height: 400px;
+            position: relative;
+            margin-top: 1.5rem;
+        }
+
+        /* GOALS & ACHIEVEMENTS */
+        .goals-achievements-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .goals-card, .achievements-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+        }
+
+        .add-btn {
+            width: 100%;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .add-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(99, 102, 241, 0.3);
+        }
+
+        .goal-item {
+            background: var(--light);
+            padding: 1.5rem;
+            border-radius: 16px;
+            margin-bottom: 1.25rem;
+            transition: all 0.3s ease;
+        }
+
+        .goal-item:hover {
+            transform: translateX(5px);
+            background: white;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .progress-bar-custom {
+            background: #e2e8f0;
+            height: 10px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 1rem 0 0.5rem 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--primary-light));
+            border-radius: 10px;
+            transition: width 1s ease;
+        }
+
+        /* EXPENSES SECTION */
+        .expenses-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+            margin-bottom: 2rem;
+        }
+
+        .expense-item {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            background: var(--light);
+            border-radius: 16px;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .expense-item:hover {
+            transform: translateX(5px);
+            background: white;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .expense-icon {
+            width: 55px;
+            height: 55px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .expense-icon.food {
+            background: linear-gradient(135deg, #f59e0b, #fbbf24);
+        }
+
+        .expense-icon.transport {
+            background: linear-gradient(135deg, #06b6d4, #22d3ee);
+        }
+
+        .expense-icon.entertainment {
+            background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+        }
+
+        .expense-icon.health {
+            background: linear-gradient(135deg, #ef4444, #f87171);
+        }
+
+        .expense-details {
+            flex: 1;
+        }
+
+        .expense-category {
+            font-weight: 700;
+            color: var(--dark);
+            font-size: 1.05rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .expense-amount {
+            color: var(--gray);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .expense-percentage {
+            font-weight: 800;
+            font-size: 1.4rem;
+            color: var(--primary);
+        }
+
+        /* MENÚ HAMBURGUESA - ESTILOS CORREGIDOS */
+        .mobile-menu-btn {
+            display: none;
+            position: fixed;
+            top: 1.5rem;
+            left: 1.5rem;
+            z-index: 1001;
+            background: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            color: var(--primary);
+            transition: all 0.3s ease;
+        }
+
+        .mobile-menu-btn:hover {
+            background: var(--primary);
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+            opacity: 1;
+        }
+
+        .sidebar-close-btn {
+            display: none;
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(239, 68, 68, 0.1);
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            color: #ef4444;
+            transition: all 0.3s ease;
+            z-index: 1001;
+        }
+
+        .sidebar-close-btn:hover {
+            background: #ef4444;
+            color: white;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 1024px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .goals-achievements-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .mobile-menu-btn {
+                display: flex;
+            }
+
+            .sidebar-close-btn {
+                display: flex;
+            }
+
+            .sidebar {
+                left: -100%;
+                z-index: 1100;
+                width: 280px;
+                box-shadow: 2px 0 20px rgba(0, 0, 0, 0.3);
+            }
+
+            .sidebar.active {
+                left: 0;
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 1rem;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+                padding: 1.5rem;
+                margin-top: 4rem;
+            }
+
+            .page-title {
+                font-size: 1.5rem;
+            }
+
+            .user-info {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-container {
+                height: 300px;
+            }
+
+            .expense-item {
+                flex-wrap: wrap;
+            }
+
+            .welcome-banner {
+                padding: 1.5rem;
+            }
+
+            .welcome-text {
+                font-size: 1.25rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .mobile-menu-btn {
+                width: 45px;
+                height: 45px;
+                font-size: 1.1rem;
+                top: 1rem;
+                left: 1rem;
+            }
+
+            .sidebar {
+                width: 260px;
+            }
+
+            .header {
+                padding: 1rem;
+            }
+
+            .page-title {
+                font-size: 1.25rem;
+            }
+
+            .welcome-banner {
+                padding: 1.25rem;
+            }
+
+            .welcome-text {
+                font-size: 1.1rem;
+            }
+
+            .stat-card {
+                padding: 1.5rem;
+            }
+
+            .stat-value {
+                font-size: 2rem;
+            }
+        }
+    </style>
 </head>
 
 <body>
     <!-- Overlay para sidebar en móvil -->
     <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
     
-    <!-- Botón menú móvil (hamburguesa) -->
+    <!-- Botón menú móvil -->
     <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleSidebar()">
         <i class="fas fa-bars"></i>
     </button>
@@ -408,14 +1015,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
     <main class="main-content">
         <!-- Header -->
         <div class="header">
-            <h1 class="page-title">Panel de Control</h1>
+            <div>
+                <h1 class="page-title">Panel de Control</h1>
+                <p class="header-subtitle">Gestiona tus finanzas de manera inteligente</p>
+            </div>
             <div class="user-info">
-                <span class="user-name"><?php echo htmlspecialchars($nombre); ?></span>
-                <div class="user-avatar">
-                    <img src="<?php echo htmlspecialchars($rutaFotoPerfil); ?>" alt="Foto de perfil" loading="lazy">
+                <div class="user-badge">
+                    <div class="user-avatar">
+                        <img src="<?php echo htmlspecialchars($rutaFotoPerfil); ?>" alt="Foto de perfil" loading="lazy">
+                    </div>
+                    <span class="user-name"><?php echo htmlspecialchars($nombre); ?></span>
                 </div>
                 <a href="modelo/logout.php" class="logout-btn">
-                    <i class="fas fa-sign-out-alt"></i>
+                    <i class="fas fa-sign-out-alt"></i> Salir
                 </a>
             </div>
         </div>
@@ -423,14 +1035,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
         <!-- Mensajes -->
         <?php if (isset($_SESSION['mensaje_exito'])): ?>
             <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <?php echo $_SESSION['mensaje_exito']; unset($_SESSION['mensaje_exito']); ?>
+                <i class="fas fa-check-circle"></i> <?php echo $_SESSION['mensaje_exito']; unset($_SESSION['mensaje_exito']); ?>
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         <?php endif; ?>
 
         <?php if (isset($_SESSION['mensaje_error'])): ?>
             <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <?php echo $_SESSION['mensaje_error']; unset($_SESSION['mensaje_error']); ?>
+                <i class="fas fa-exclamation-circle"></i> <?php echo $_SESSION['mensaje_error']; unset($_SESSION['mensaje_error']); ?>
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         <?php endif; ?>
@@ -438,21 +1050,86 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
         <!-- Welcome Banner -->
         <div class="welcome-banner">
             <i class="fas fa-hand-wave"></i>
-            <div class="welcome-text">¡Bienvenido de nuevo! <span><?php echo htmlspecialchars($nombre); ?></span></div>
+            <div class="welcome-text">¡Bienvenido de nuevo, <span><?php echo htmlspecialchars($nombre); ?></span>!</div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card income">
+                <div class="stat-icon">
+                    <i class="fas fa-arrow-trend-up"></i>
+                </div>
+                <div class="stat-label">Ingresos Totales</div>
+                <div class="stat-value">S/ <?php include 'modelo/totalIngreso.php'; ?></div>
+                <div class="stat-trend trend-positive">
+                    <i class="fas fa-arrow-up"></i>
+                    <span>8.2% vs mes anterior</span>
+                </div>
+            </div>
+
+            <div class="stat-card expense">
+                <div class="stat-icon">
+                    <i class="fas fa-arrow-trend-down"></i>
+                </div>
+                <div class="stat-label">Gastos Totales</div>
+                <div class="stat-value">S/ <?php include 'modelo/total.php'; ?></div>
+                <div class="stat-trend trend-positive">
+                    <i class="fas fa-arrow-down"></i>
+                    <span>3.5% vs mes anterior</span>
+                </div>
+            </div>
+
+            <div class="stat-card balance">
+                <div class="stat-icon">
+                    <i class="fas fa-wallet"></i>
+                </div>
+                <div class="stat-label">Balance Actual</div>
+                <div class="stat-value">S/ <?php 
+                    $ingresos = file_get_contents('modelo/totalIngreso.php');
+                    $gastos = file_get_contents('modelo/total.php');
+                    echo number_format(floatval($ingresos) - floatval($gastos), 2);
+                ?></div>
+                <div class="stat-trend trend-positive">
+                    <i class="fas fa-arrow-up"></i>
+                    <span>12.7% vs mes anterior</span>
+                </div>
+            </div>
+
+            <div class="stat-card savings">
+                <div class="stat-icon">
+                    <i class="fas fa-piggy-bank"></i>
+                </div>
+                <div class="stat-label">Ahorros del Mes</div>
+                <div class="stat-value">S/ 1,245.50</div>
+                <div class="stat-trend trend-positive">
+                    <i class="fas fa-arrow-up"></i>
+                    <span>15.3% vs mes anterior</span>
+                </div>
+            </div>
         </div>
 
         <!-- Alertas -->
         <?php if (!empty($alertas)): ?>
-        <div class="alertas-section">
+        <div class="alerts-section">
             <div class="section-header">
-                <h3><i class="fas fa-bell"></i> Alertas Inteligentes</h3>
+                <h3 class="section-title">
+                    <i class="fas fa-bell"></i> Alertas Inteligentes
+                </h3>
             </div>
-            <div class="alertas-container">
+            <div>
                 <?php foreach($alertas as $alerta): ?>
-                    <div class="alerta-item alerta-<?php echo $alerta['tipo']; ?>">
-                        <div class="alerta-icono"><?php echo $alerta['icono']; ?></div>
-                        <div class="alerta-mensaje"><?php echo htmlspecialchars($alerta['mensaje']); ?></div>
-                        <button class="alerta-cerrar" onclick="this.parentElement.remove()">
+                    <div class="alert-item alert-<?php echo $alerta['tipo']; ?>">
+                        <div class="alert-icon">
+                            <i class="fas fa-<?php 
+                                echo $alerta['tipo'] == 'peligro' ? 'exclamation-triangle' : 
+                                     ($alerta['tipo'] == 'advertencia' ? 'exclamation-circle' : 
+                                     ($alerta['tipo'] == 'exito' ? 'check-circle' : 'info-circle')); 
+                            ?>"></i>
+                        </div>
+                        <div class="alert-content">
+                            <p class="alert-message"><?php echo htmlspecialchars($alerta['mensaje']); ?></p>
+                        </div>
+                        <button class="alert-close" onclick="this.parentElement.remove()">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -461,134 +1138,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
         </div>
         <?php endif; ?>
 
-        <!-- Hábitos -->
-        <div class="habitos-section">
-            <div class="section-header">
-                <h3><i class="fas fa-chart-line"></i> Análisis de Hábitos Semanales</h3>
-                <small style="color:#6b7280;">Patrones y tendencias de tu comportamiento financiero</small>
-            </div>
-            
-            <?php if (!empty($habitos_semana)): ?>
-            <div class="habitos-chart" style="margin-bottom:2rem;">
-                <h4 style="margin-bottom:1rem;color:#374151;">📊 Gastos por Día de la Semana</h4>
-                <div class="chart-bars">
-                    <?php 
-                    $max_gasto = max(array_column($habitos_semana, 'gastos'));
-                    foreach($habitos_semana as $dia => $datos): 
-                        $altura = $max_gasto > 0 ? ($datos['gastos'] / $max_gasto) * 150 : 10;
-                        $color = $datos['tendencia'] > 0 ? '#ef4444' : '#10b981';
-                    ?>
-                    <div class="bar-container">
-                        <div class="bar" style="background:<?php echo $color; ?>;height:<?php echo $altura; ?>px;">
-                            <div class="bar-value">S/<?php echo number_format($datos['gastos'], 0); ?></div>
-                        </div>
-                        <div class="bar-label"><?php echo $dia; ?></div>
-                        <div class="bar-tendencia" style="color:<?php echo $color; ?>;">
-                            <?php if ($datos['tendencia'] != 0): ?>
-                                <?php echo $datos['tendencia'] > 0 ? '↗' : '↘'; ?>
-                                <?php echo number_format(abs($datos['tendencia']), 1); ?>%
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            
-            <?php if (!empty($analisis_habitos)): ?>
-            <div style="margin-bottom:2rem;">
-                <h4 style="margin-bottom:1rem;color:#374151;">🔍 Patrones Detectados</h4>
-                <div class="analisis-grid">
-                    <?php foreach($analisis_habitos as $analisis): ?>
-                        <div class="analisis-item"><?php echo $analisis; ?></div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            <?php endif; ?>
-            
-            <?php if (!empty($resumen_habitos)): ?>
-            <div>
-                <h4 style="margin-bottom:1rem;color:#374151;">📈 Resumen Semanal</h4>
-                <div class="resumen-grid">
-                    <div class="resumen-item" style="background:#f0fdf4;">
-                        <div style="font-size:2rem;color:#10b981;margin-bottom:0.5rem;">💰</div>
-                        <div style="font-weight:600;color:#374151;">Total Ingresos</div>
-                        <div style="font-size:1.25rem;font-weight:700;color:#10b981;">
-                            S/<?php echo number_format($resumen_habitos['total_ingresos'], 2); ?>
-                        </div>
-                    </div>
-                    <div class="resumen-item" style="background:#fef2f2;">
-                        <div style="font-size:2rem;color:#ef4444;margin-bottom:0.5rem;">💸</div>
-                        <div style="font-weight:600;color:#374151;">Total Gastos</div>
-                        <div style="font-size:1.25rem;font-weight:700;color:#ef4444;">
-                            S/<?php echo number_format($resumen_habitos['total_gastos'], 2); ?>
-                        </div>
-                    </div>
-                    <div class="resumen-item" style="background:#f0f9ff;">
-                        <div style="font-size:2rem;color:#3b82f6;margin-bottom:0.5rem;">⚖️</div>
-                        <div style="font-weight:600;color:#374151;">Balance Semanal</div>
-                        <div style="font-size:1.25rem;font-weight:700;color:#3b82f6;">
-                            S/<?php echo number_format($resumen_habitos['balance_semanal'], 2); ?>
-                        </div>
-                    </div>
-                    <div class="resumen-item" style="background:#faf5ff;">
-                        <div style="font-size:2rem;color:#8b5cf6;margin-bottom:0.5rem;">📅</div>
-                        <div style="font-weight:600;color:#374151;">Días Activos</div>
-                        <div style="font-size:1.25rem;font-weight:700;color:#8b5cf6;">
-                            <?php echo $resumen_habitos['dias_con_movimientos']; ?>/7
-                        </div>
+        <!-- Content Grid -->
+        <div class="content-grid">
+            <!-- Chart Section -->
+            <div class="chart-section">
+                <div class="section-header">
+                    <h3 class="section-title">
+                        <i class="fas fa-chart-pie"></i> Resumen Financiero
+                    </h3>
+                    <div class="chart-controls">
+                        <button class="chart-btn active" onclick="changeChartType('doughnut')">
+                            <i class="fas fa-chart-pie"></i> Circular
+                        </button>
+                        <button class="chart-btn" onclick="changeChartType('bar')">
+                            <i class="fas fa-chart-bar"></i> Barras
+                        </button>
+                        <button class="chart-btn" onclick="changeChartType('line')">
+                            <i class="fas fa-chart-line"></i> Línea
+                        </button>
                     </div>
                 </div>
-            </div>
-            <?php endif; ?>
-            
-            <?php else: ?>
-                <div style="text-align:center;padding:2rem;color:#6b7280;">
-                    <i class="fas fa-chart-line" style="font-size:3rem;margin-bottom:1rem;opacity:0.5;"></i>
-                    <p>No hay suficientes datos para el análisis de hábitos</p>
-                    <p style="font-size:0.875rem;">Registra ingresos y gastos para ver tus patrones</p>
+                <div class="chart-container">
+                    <canvas id="financialChart"></canvas>
                 </div>
-            <?php endif; ?>
-        </div>
+            </div>
 
-        <!-- Logros y Metas -->
-        <div class="goals-achievements-section">
-            <div class="achievements-card">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-                    <h3 style="display:flex;align-items:center;gap:0.5rem;margin:0;">🏆 Tus Logros</h3>
-                </div>
-                <div>
-                    <?php if (!empty($logros_usuario)): ?>
-                        <?php foreach($logros_usuario as $logro): 
-                            $fecha = date('d/m/Y', strtotime($logro['fecha_obtenido']));
-                            $bgColor = !$logro['visto'] ? '#fef3c7' : '#f3f4f6';
-                            $borderColor = !$logro['visto'] ? '#f59e0b' : '#4f46e5';
-                        ?>
-                        <div style="background:<?php echo $bgColor; ?>;padding:1rem;border-radius:8px;margin-bottom:0.5rem;border-left:4px solid <?php echo $borderColor; ?>;">
-                            <div style="font-weight:600;display:flex;align-items:center;gap:0.5rem;">
-                                <span><?php echo $logro['icono']; ?></span>
-                                <span><?php echo $logro['mensaje']; ?></span>
-                            </div>
-                            <div style="font-size:0.875rem;color:#6b7280;margin-top:0.25rem;">
-                                Obtenido: <?php echo $fecha; ?>
-                            </div>
-                        </div>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <div style="text-align:center;padding:3rem 1rem;color:#9ca3af;">
-                            <i class="fas fa-trophy" style="font-size:3rem;margin-bottom:1rem;opacity:0.5;"></i>
-                            <p>Comienza a usar la app<br>para desbloquear logros</p>
-                        </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-            
+            <!-- Goals Section -->
             <div class="goals-card">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem;">
-                    <h3 style="display:flex;align-items:center;gap:0.5rem;margin:0;">🎯 Tus Metas</h3>
-                    <button class="add-btn" onclick="abrirModalMeta()">
-                        <i class="fas fa-plus"></i> Nueva Meta
-                    </button>
+                <div class="section-header">
+                    <h3 class="section-title">
+                        <i class="fas fa-bullseye"></i> Mis Metas
+                    </h3>
                 </div>
+                <button class="add-btn" onclick="abrirModalMeta()">
+                    <i class="fas fa-plus"></i> Nueva Meta de Ahorro
+                </button>
+
                 <div>
                     <?php
                     if ($conexion_pdo) {
@@ -600,34 +1185,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
                             foreach ($metas as $meta):
                                 $porcentaje = $meta['meta_total'] > 0 ? min(round(($meta['monto_actual'] / $meta['meta_total']) * 100), 100) : 0;
                     ?>
-                    <div class="meta-item">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;flex-wrap:wrap;gap:0.5rem;">
-                            <span style="font-weight:600;display:flex;align-items:center;gap:0.5rem;">
-                                <?php echo htmlspecialchars($meta['icono']); ?> <?php echo htmlspecialchars($meta['nombre_meta']); ?>
+                    <div class="goal-item">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+                            <span style="font-weight:700;font-size:1.05rem;color:var(--dark);">
+                                <?php echo htmlspecialchars($meta['nombre_meta']); ?>
                             </span>
                             <div style="display:flex;gap:0.5rem;">
-                                <button class="meta-action-btn" onclick="abrirModalAgregarMonto(<?php echo $meta['id_meta']; ?>)" style="color:#10b981;" title="Agregar monto">
+                                <button style="background:none;border:none;color:var(--success);cursor:pointer;padding:0.25rem;font-size:1.1rem;" 
+                                        onclick="abrirModalAgregarMonto(<?php echo $meta['id_meta']; ?>)" title="Agregar monto">
                                     <i class="fas fa-plus-circle"></i>
                                 </button>
-                                <button class="meta-action-btn" onclick="abrirModalEditarMeta(<?php echo $meta['id_meta']; ?>)" style="color:#3b82f6;" title="Editar">
+                                <button style="background:none;border:none;color:var(--primary);cursor:pointer;padding:0.25rem;font-size:1.1rem;" 
+                                        onclick="abrirModalEditarMeta(<?php echo $meta['id_meta']; ?>)" title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <button class="meta-action-btn" onclick="confirmarEliminarMeta(<?php echo $meta['id_meta']; ?>)" style="color:#ef4444;" title="Eliminar">
+                                <button style="background:none;border:none;color:var(--danger);cursor:pointer;padding:0.25rem;font-size:1.1rem;" 
+                                        onclick="confirmarEliminarMeta(<?php echo $meta['id_meta']; ?>)" title="Eliminar">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
                         </div>
-                        <div style="font-size:0.875rem;color:#6b7280;margin-bottom:0.5rem;">
-                            S/<?php echo number_format($meta['monto_actual'], 2); ?> / S/<?php echo number_format($meta['meta_total'], 2); ?>
-                            (Restante: S/<?php echo number_format(max($meta['meta_total'] - $meta['monto_actual'], 0), 2); ?>)
+                        <div style="font-size:0.9rem;color:var(--gray);margin-bottom:0.5rem;font-weight:500;">
+                            S/ <?php echo number_format($meta['monto_actual'], 2); ?> / S/ <?php echo number_format($meta['meta_total'], 2); ?>
                         </div>
-                        <div style="background:#e5e7eb;height:8px;border-radius:4px;overflow:hidden;">
-                            <div style="background:linear-gradient(90deg,#10b981,#34d399);height:100%;width:<?php echo $porcentaje; ?>%;transition:width 0.6s ease;"></div>
+                        <div class="progress-bar-custom">
+                            <div class="progress-fill" style="width: <?php echo $porcentaje; ?>%"></div>
                         </div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.25rem;">
-                            <span style="font-size:0.875rem;font-weight:600;color:#10b981;"><?php echo $porcentaje; ?>%</span>
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <span style="font-size:0.9rem;font-weight:700;color:var(--primary);"><?php echo $porcentaje; ?>% completado</span>
                             <?php if ($meta['fecha_objetivo']): ?>
-                            <span style="font-size:0.75rem;color:#9ca3af;">Meta: <?php echo date('d/m/Y', strtotime($meta['fecha_objetivo'])); ?></span>
+                            <span style="font-size:0.8rem;color:var(--gray);">
+                                <i class="fas fa-calendar"></i> <?php echo date('d/m/Y', strtotime($meta['fecha_objetivo'])); ?>
+                            </span>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -635,9 +1224,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
                             endforeach;
                         else:
                     ?>
-                        <div style="text-align:center;padding:3rem 1rem;color:#9ca3af;">
-                            <i class="fas fa-bullseye" style="font-size:3rem;margin-bottom:1rem;opacity:0.5;"></i>
-                            <p>No tienes metas aún<br>¡Crea tu primera meta!</p>
+                        <div style="text-align:center;padding:3rem 1rem;color:var(--gray);">
+                            <i class="fas fa-bullseye" style="font-size:3.5rem;margin-bottom:1rem;opacity:0.3;"></i>
+                            <p style="font-weight:600;">No tienes metas aún</p>
+                            <p style="font-size:0.9rem;">¡Crea tu primera meta de ahorro!</p>
                         </div>
                     <?php 
                         endif;
@@ -647,106 +1237,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
             </div>
         </div>
 
-        <!-- Tarjetas Financieras -->
-        <div class="cards-container">
-            <div class="card card-income">
-                <div class="card-content">
-                    <h3>Ingreso Total</h3>
-                    <div class="amount">S/<?php include 'modelo/totalIngreso.php'; ?></div>
-                    <div class="card-trend">
-                        <span class="trend-up"><i class="fas fa-arrow-up"></i> +8.2%</span>
-                        <span class="trend-text">vs mes anterior</span>
-                    </div>
-                </div>
-                <div class="card-icon"><i class="fas fa-dollar-sign"></i></div>
+        <!-- Logros -->
+        <?php if (!empty($logros_usuario)): ?>
+        <div class="achievements-card" style="margin-bottom:2rem;">
+            <div class="section-header">
+                <h3 class="section-title">
+                    <i class="fas fa-trophy"></i> Tus Logros Recientes
+                </h3>
             </div>
-
-            <div class="card card-expense">
-                <div class="card-content">
-                    <h3>Gasto Total</h3>
-                    <div class="amount">S/<?php include 'modelo/total.php'; ?></div>
-                    <div class="card-trend">
-                        <span class="trend-down"><i class="fas fa-arrow-down"></i> -3.5%</span>
-                        <span class="trend-text">vs mes anterior</span>
+            <div style="display:grid;gap:1rem;">
+                <?php foreach($logros_usuario as $logro): 
+                    $fecha = date('d/m/Y', strtotime($logro['fecha_obtenido']));
+                    $bgColor = !$logro['visto'] ? 'linear-gradient(90deg, #fef3c7, white)' : 'var(--light)';
+                    $borderColor = !$logro['visto'] ? 'var(--warning)' : 'var(--primary)';
+                ?>
+                <div style="background:<?php echo $bgColor; ?>;padding:1.25rem;border-radius:16px;border-left:5px solid <?php echo $borderColor; ?>;transition:all 0.3s ease;" 
+                     onmouseover="this.style.transform='translateX(5px)'" 
+                     onmouseout="this.style.transform='translateX(0)'">
+                    <div style="font-weight:600;font-size:1.05rem;color:var(--dark);margin-bottom:0.25rem;">
+                        <?php echo $logro['mensaje']; ?>
+                    </div>
+                    <div style="font-size:0.85rem;color:var(--gray);">
+                        <i class="fas fa-calendar"></i> Obtenido el <?php echo $fecha; ?>
                     </div>
                 </div>
-                <div class="card-icon"><i class="fas fa-piggy-bank"></i></div>
-            </div>
-
-            <div class="card card-budget">
-                <div class="card-content">
-                    <h3>Balance Actual</h3>
-                    <div class="amount">S/<?php 
-                        $ingresos = file_get_contents('modelo/totalIngreso.php');
-                        $gastos = file_get_contents('modelo/total.php');
-                        echo number_format(floatval($ingresos) - floatval($gastos), 2);
-                    ?></div>
-                    <div class="card-trend">
-                        <span class="trend-up"><i class="fas fa-arrow-up"></i> +12.7%</span>
-                        <span class="trend-text">vs mes anterior</span>
-                    </div>
-                </div>
-                <div class="card-icon"><i class="fas fa-wallet"></i></div>
-            </div>
-
-            <div class="card card-savings">
-                <div class="card-content">
-                    <h3>Ahorros del Mes</h3>
-                    <div class="amount">S/1,245.50</div>
-                    <div class="card-trend">
-                        <span class="trend-up"><i class="fas fa-arrow-up"></i> +15.3%</span>
-                        <span class="trend-text">vs mes anterior</span>
-                    </div>
-                </div>
-                <div class="card-icon"><i class="fas fa-piggy-bank"></i></div>
+                <?php endforeach; ?>
             </div>
         </div>
+        <?php endif; ?>
 
         <!-- Gastos por Categoría -->
         <div class="expenses-section">
             <div class="section-header">
-                <h3>Gastos por Categoría</h3>
+                <h3 class="section-title">
+                    <i class="fas fa-chart-bar"></i> Gastos por Categoría
+                </h3>
             </div>
-            <div class="expenses-grid">
-                <div class="expense-item">
-                    <div class="expense-icon food"><i class="fas fa-utensils"></i></div>
-                    <div class="expense-info">
-                        <span class="expense-category">Alimentación</span>
-                        <span class="expense-amount">S/425.80</span>
-                        <div class="expense-bar"><div class="expense-fill" style="width:35%"></div></div>
-                    </div>
-                    <div class="expense-percentage">35%</div>
-                </div>
-                
-                <div class="expense-item">
-                    <div class="expense-icon transport"><i class="fas fa-car"></i></div>
-                    <div class="expense-info">
-                        <span class="expense-category">Transporte</span>
-                        <span class="expense-amount">S/180.50</span>
-                        <div class="expense-bar"><div class="expense-fill" style="width:22%"></div></div>
-                    </div>
-                    <div class="expense-percentage">22%</div>
-                </div>
 
-                <div class="expense-item">
-                    <div class="expense-icon entertainment"><i class="fas fa-film"></i></div>
-                    <div class="expense-info">
-                        <span class="expense-category">Entretenimiento</span>
-                        <span class="expense-amount">S/120.00</span>
-                        <div class="expense-bar"><div class="expense-fill" style="width:15%"></div></div>
-                    </div>
-                    <div class="expense-percentage">15%</div>
+            <div class="expense-item">
+                <div class="expense-icon food">
+                    <i class="fas fa-utensils"></i>
                 </div>
+                <div class="expense-details">
+                    <div class="expense-category">Alimentación</div>
+                    <div class="expense-amount">S/ 425.80</div>
+                </div>
+                <div class="expense-percentage">35%</div>
+            </div>
 
-                <div class="expense-item">
-                    <div class="expense-icon health"><i class="fas fa-heartbeat"></i></div>
-                    <div class="expense-info">
-                        <span class="expense-category">Salud</span>
-                        <span class="expense-amount">S/95.30</span>
-                        <div class="expense-bar"><div class="expense-fill" style="width:12%"></div></div>
-                    </div>
-                    <div class="expense-percentage">12%</div>
+            <div class="expense-item">
+                <div class="expense-icon transport">
+                    <i class="fas fa-car"></i>
                 </div>
+                <div class="expense-details">
+                    <div class="expense-category">Transporte</div>
+                    <div class="expense-amount">S/ 180.50</div>
+                </div>
+                <div class="expense-percentage">22%</div>
+            </div>
+
+            <div class="expense-item">
+                <div class="expense-icon entertainment">
+                    <i class="fas fa-film"></i>
+                </div>
+                <div class="expense-details">
+                    <div class="expense-category">Entretenimiento</div>
+                    <div class="expense-amount">S/ 120.00</div>
+                </div>
+                <div class="expense-percentage">15%</div>
+            </div>
+
+            <div class="expense-item">
+                <div class="expense-icon health">
+                    <i class="fas fa-heartbeat"></i>
+                </div>
+                <div class="expense-details">
+                    <div class="expense-category">Salud</div>
+                    <div class="expense-amount">S/ 95.30</div>
+                </div>
+                <div class="expense-percentage">12%</div>
             </div>
         </div>
     </main>
@@ -757,7 +1326,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Crear Nueva Meta</h5>
+                    <h5 class="modal-title"><i class="fas fa-bullseye"></i> Crear Nueva Meta</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form method="POST">
@@ -778,14 +1347,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
                         <div class="mb-3">
                             <label class="form-label">Icono</label>
                             <select class="form-select" name="icono">
-                                <option value="🎯">🎯 Objetivo</option>
-                                <option value="💰">💰 Dinero</option>
-                                <option value="🏠">🏠 Casa</option>
-                                <option value="🚗">🚗 Auto</option>
-                                <option value="✈️">✈️ Viaje</option>
-                                <option value="🎓">🎓 Educación</option>
-                                <option value="💼">💼 Negocio</option>
-                                <option value="❤️">❤️ Salud</option>
+                                <option value="target">🎯 Objetivo</option>
+                                <option value="money">💰 Dinero</option>
+                                <option value="home">🏠 Casa</option>
+                                <option value="car">🚗 Auto</option>
+                                <option value="plane">✈️ Viaje</option>
+                                <option value="education">🎓 Educación</option>
+                                <option value="business">💼 Negocio</option>
+                                <option value="health">❤️ Salud</option>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -807,7 +1376,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Agregar Monto a Meta</h5>
+                    <h5 class="modal-title"><i class="fas fa-plus-circle"></i> Agregar Monto a Meta</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form method="POST">
@@ -833,7 +1402,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Editar Meta</h5>
+                    <h5 class="modal-title"><i class="fas fa-edit"></i> Editar Meta</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form method="POST">
@@ -855,14 +1424,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
                         <div class="mb-3">
                             <label class="form-label">Icono</label>
                             <select class="form-select" id="icono_editar" name="icono">
-                                <option value="🎯">🎯 Objetivo</option>
-                                <option value="💰">💰 Dinero</option>
-                                <option value="🏠">🏠 Casa</option>
-                                <option value="🚗">🚗 Auto</option>
-                                <option value="✈️">✈️ Viaje</option>
-                                <option value="🎓">🎓 Educación</option>
-                                <option value="💼">💼 Negocio</option>
-                                <option value="❤️">❤️ Salud</option>
+                                <option value="target">🎯 Objetivo</option>
+                                <option value="money">💰 Dinero</option>
+                                <option value="home">🏠 Casa</option>
+                                <option value="car">🚗 Auto</option>
+                                <option value="plane">✈️ Viaje</option>
+                                <option value="education">🎓 Educación</option>
+                                <option value="business">💼 Negocio</option>
+                                <option value="health">❤️ Salud</option>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -885,108 +1454,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
         <input type="hidden" id="id_meta_eliminar" name="id_meta">
     </form>
 
-    <!-- ChatBot -->
-    <div id="chatbot-container" class="chatbot-container">
-        <div class="chatbot-header">
-            <div class="bot-info">
-                <div class="bot-avatar">
-                    <i class="fas fa-robot"></i>
-                    <div class="avatar-status"></div>
-                </div>
-                <div class="bot-details">
-                    <span class="bot-name">Asistente Financiero</span>
-                    <span class="bot-status">En línea</span>
-                </div>
-            </div>
-            <div class="chatbot-controls">
-                <button id="expand-chat" class="control-btn" title="Expandir">
-                    <i class="fas fa-expand"></i>
-                </button>
-                <button id="minimize-chat" class="control-btn" title="Minimizar">
-                    <i class="fas fa-minus"></i>
-                </button>
-                <button id="close-chat" class="control-btn" title="Cerrar">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        </div>
-
-        <div class="chatbot-body">
-            <div class="chat-suggestions">
-                <div class="suggestion" onclick="sendQuickMessage('¿Cómo puedo ahorrar más dinero?')">
-                    <i class="fas fa-piggy-bank"></i>
-                    <span>Consejos de ahorro</span>
-                </div>
-                <div class="suggestion" onclick="sendQuickMessage('Analiza mis gastos')">
-                    <i class="fas fa-chart-bar"></i>
-                    <span>Análisis de gastos</span>
-                </div>
-                <div class="suggestion" onclick="sendQuickMessage('¿Cómo hacer un presupuesto?')">
-                    <i class="fas fa-calculator"></i>
-                    <span>Crear presupuesto</span>
-                </div>
-            </div>
-
-            <div id="chat-messages" class="chat-messages"></div>
-
-            <div class="chat-input-area">
-                <div class="input-container">
-                    <input type="text" id="chat-input" placeholder="Escribe tu pregunta..." maxlength="500">
-                    <button id="stop-btn" class="control-button stop-button" title="Detener respuesta" style="display:none;">
-                        <i class="fas fa-stop"></i>
-                    </button>
-                    <button id="send-btn" class="send-button">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Chat FAB -->
-    <div id="chat-fab" class="chat-fab">
-        <i class="fas fa-comments"></i>
-        <span class="notification">1</span>
-    </div>
-
-    <!-- Scripts - Cargar al final para mejor rendimiento -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
-        // Variables globales
-        let chatVisible = false;
-        let isTyping = false;
-        let isExpanded = false;
-        let typingInterval = null;
         let currentChart = null;
 
         // Inicializar cuando el DOM esté listo
         document.addEventListener('DOMContentLoaded', function() {
-            initializeApp();
+            initializeChart();
             initializeMobileMenu();
+            animateProgressBars();
         });
-
-        function initializeApp() {
-            setTimeout(() => {
-                initializeChart();
-                initializeChat();
-                showWelcomeMessage();
-            }, 100);
-        }
 
         function initializeMobileMenu() {
             const mobileMenuBtn = document.getElementById('mobile-menu-btn');
             const sidebar = document.getElementById('sidebar');
             
-            // Mostrar/ocultar botón hamburguesa según tamaño de pantalla
             function updateMenuVisibility() {
                 if (window.innerWidth <= 768) {
-                    mobileMenuBtn.style.display = 'flex';
-                    sidebar.classList.remove('active'); // Ocultar sidebar en móvil por defecto
+                    if (mobileMenuBtn) mobileMenuBtn.style.display = 'flex';
+                    if (sidebar) sidebar.classList.remove('active');
                 } else {
-                    mobileMenuBtn.style.display = 'none';
-                    sidebar.classList.remove('active');
+                    if (mobileMenuBtn) mobileMenuBtn.style.display = 'none';
+                    if (sidebar) sidebar.classList.remove('active');
                     document.getElementById('sidebar-overlay').style.display = 'none';
                 }
             }
@@ -1001,27 +1493,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
             const isActive = sidebar.classList.contains('active');
             
             if (isActive) {
-                // Cerrar sidebar
                 sidebar.classList.remove('active');
-                overlay.style.display = 'none';
-                document.body.style.overflow = ''; // Restaurar scroll
+                overlay.classList.remove('active');
+                document.body.style.overflow = '';
             } else {
-                // Abrir sidebar
                 sidebar.classList.add('active');
-                overlay.style.display = 'block';
-                document.body.style.overflow = 'hidden'; // Prevenir scroll del body
+                overlay.classList.add('active');
+                document.body.style.overflow = 'hidden';
             }
         }
 
-        function closeSidebarOnMobile() {
-            if (window.innerWidth <= 768) {
-                const sidebar = document.getElementById('sidebar');
-                const overlay = document.getElementById('sidebar-overlay');
-                sidebar.classList.remove('active');
-                overlay.style.display = 'none';
-                document.body.style.overflow = '';
-            }
+        function closeSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.remove('active');
+            overlay.classList.remove('active');
+            document.body.style.overflow = '';
         }
+
+        // Cerrar sidebar al hacer clic en un enlace (para móviles)
+        document.addEventListener('DOMContentLoaded', function() {
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    if (window.innerWidth <= 768) {
+                        closeSidebar();
+                    }
+                });
+            });
+        });
 
         function initializeChart() {
             const canvas = document.getElementById('financialChart');
@@ -1035,25 +1535,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
                 data: {
                     labels: ['Ingresos', 'Gastos', 'Ahorros'],
                     datasets: [{
-                        data: [3500, 1200, 800],
-                        backgroundColor: ['#10b981', '#ef4444', '#3b82f6'],
+                        data: [3500, 1200, 1245],
+                        backgroundColor: ['#10b981', '#ef4444', '#6366f1'],
                         borderWidth: 0,
-                        cutout: '65%'
+                        cutout: '70%'
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { display: false },
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                font: { size: 14, weight: '600' }
+                            }
+                        },
                         tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            titleFont: { size: 14, weight: 'bold' },
+                            bodyFont: { size: 13 },
                             callbacks: {
                                 label: function(context) {
                                     const label = context.label || '';
                                     const value = context.parsed;
                                     const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                     const percentage = Math.round((value / total) * 100);
-                                    return `${label}: S/${value} (${percentage}%)`;
+                                    return `${label}: S/ ${value.toLocaleString()} (${percentage}%)`;
                                 }
                             }
                         }
@@ -1062,255 +1572,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
             });
         }
 
-        function initializeChat() {
-            const chatFab = document.getElementById('chat-fab');
-            const minimizeBtn = document.getElementById('minimize-chat');
-            const expandBtn = document.getElementById('expand-chat');
-            const closeBtn = document.getElementById('close-chat');
-            const sendBtn = document.getElementById('send-btn');
-            const stopBtn = document.getElementById('stop-btn');
-            const chatInput = document.getElementById('chat-input');
-
-            if (chatFab) chatFab.addEventListener('click', toggleChat);
-            if (minimizeBtn) minimizeBtn.addEventListener('click', minimizeChat);
-            if (expandBtn) expandBtn.addEventListener('click', expandChat);
-            if (closeBtn) closeBtn.addEventListener('click', closeChat);
-            if (sendBtn) sendBtn.addEventListener('click', sendMessage);
-            if (stopBtn) stopBtn.addEventListener('click', stopTyping);
-            
-            if (chatInput) {
-                chatInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter' && !isTyping) {
-                        sendMessage();
-                    }
-                });
-            }
-        }
-
-        function showWelcomeMessage() {
-            setTimeout(() => {
-                addBotMessage("¡Hola! 👋 Soy tu asistente financiero. Puedo ayudarte con análisis de gastos, consejos de ahorro y presupuestos. ¿En qué puedo ayudarte hoy?");
-            }, 1500);
-        }
-
-        function toggleChat() {
-            const container = document.getElementById('chatbot-container');
-            const fab = document.getElementById('chat-fab');
-            chatVisible = !chatVisible;
-            
-            if (chatVisible) {
-                container.style.display = 'flex';
-                fab.style.display = 'none';
-                setTimeout(() => {
-                    container.style.opacity = '1';
-                    container.style.transform = 'translateY(0)';
-                    document.getElementById('chat-input').focus();
-                }, 10);
-            } else {
-                container.style.opacity = '0';
-                container.style.transform = 'translateY(20px)';
-                setTimeout(() => {
-                    container.style.display = 'none';
-                    fab.style.display = 'flex';
-                }, 300);
-            }
-        }
-
-        function minimizeChat() {
-            const container = document.getElementById('chatbot-container');
-            const fab = document.getElementById('chat-fab');
-            container.style.opacity = '0';
-            container.style.transform = 'translateY(20px)';
-            setTimeout(() => {
-                container.style.display = 'none';
-                fab.style.display = 'flex';
-            }, 300);
-            chatVisible = false;
-        }
-
-        function expandChat() {
-            const container = document.getElementById('chatbot-container');
-            isExpanded = !isExpanded;
-            
-            if (isExpanded) {
-                container.style.width = window.innerWidth <= 768 ? '95vw' : '80%';
-                container.style.height = window.innerWidth <= 768 ? '85vh' : '80%';
-                container.style.maxWidth = '1000px';
-                container.style.maxHeight = '700px';
-                document.getElementById('expand-chat').innerHTML = '<i class="fas fa-compress"></i>';
-            } else {
-                container.style.width = window.innerWidth <= 768 ? 'calc(100vw - 20px)' : '350px';
-                container.style.height = window.innerWidth <= 768 ? 'calc(100vh - 80px)' : '500px';
-                container.style.maxWidth = 'none';
-                container.style.maxHeight = window.innerWidth <= 768 ? '600px' : 'none';
-                document.getElementById('expand-chat').innerHTML = '<i class="fas fa-expand"></i>';
-            }
-        }
-
-        function closeChat() {
-            minimizeChat();
-        }
-
-        function sendQuickMessage(message) {
-            document.getElementById('chat-input').value = message;
-            sendMessage();
-        }
-
-        function sendMessage() {
-            if (isTyping) return;
-            
-            const input = document.getElementById('chat-input');
-            const message = input.value.trim();
-            if (!message) return;
-            
-            document.querySelector('.chat-suggestions').style.display = 'none';
-            addUserMessage(message);
-            input.value = '';
-            input.disabled = true;
-            isTyping = true;
-            document.getElementById('stop-btn').style.display = 'block';
-            showTypingIndicator();
-            
-            setTimeout(() => {
-                hideTypingIndicator();
-                const response = getBotResponse(message);
-                simulateTyping(response);
-            }, 1000);
-        }
-
-        function stopTyping() {
-            if (typingInterval) {
-                clearInterval(typingInterval);
-                typingInterval = null;
-            }
-            hideTypingIndicator();
-            document.getElementById('chat-input').disabled = false;
-            isTyping = false;
-            document.getElementById('stop-btn').style.display = 'none';
-        }
-
-        function simulateTyping(message) {
-            const messagesContainer = document.getElementById('chat-messages');
-            const messageElement = document.createElement('div');
-            messageElement.className = 'message bot-message';
-            messageElement.innerHTML = `
-                <div class="message-avatar"><i class="fas fa-robot"></i></div>
-                <div class="message-content">
-                    <p></p>
-                    <span class="message-time" style="font-size:0.75rem;color:#6b7280;margin-top:0.25rem;display:block;">${getCurrentTime()}</span>
-                </div>
-            `;
-            messagesContainer.appendChild(messageElement);
-            
-            const textElement = messageElement.querySelector('p');
-            let index = 0;
-            const typingSpeed = 30;
-            
-            if (typingInterval) clearInterval(typingInterval);
-            
-            typingInterval = setInterval(() => {
-                if (index < message.length) {
-                    textElement.textContent += message[index];
-                    index++;
-                    scrollToBottom();
-                } else {
-                    clearInterval(typingInterval);
-                    typingInterval = null;
-                    document.getElementById('chat-input').disabled = false;
-                    isTyping = false;
-                    document.getElementById('stop-btn').style.display = 'none';
-                }
-            }, typingSpeed);
-        }
-
-        function addUserMessage(message) {
-            const messagesContainer = document.getElementById('chat-messages');
-            const messageElement = document.createElement('div');
-            messageElement.className = 'message user-message';
-            messageElement.innerHTML = `
-                <div class="message-content">
-                    <p>${message}</p>
-                    <span class="message-time" style="font-size:0.75rem;color:rgba(255,255,255,0.7);margin-top:0.25rem;display:block;">${getCurrentTime()}</span>
-                </div>
-                <div class="message-avatar">
-                    <img src="<?php echo $rutaFotoPerfil; ?>" alt="Usuario" style="width:100%;height:100%;border-radius:50%;object-fit:cover;border:2px solid var(--primary);">
-                </div>
-            `;
-            messagesContainer.appendChild(messageElement);
-            scrollToBottom();
-        }
-
-        function addBotMessage(message) {
-            const messagesContainer = document.getElementById('chat-messages');
-            const messageElement = document.createElement('div');
-            messageElement.className = 'message bot-message';
-            messageElement.innerHTML = `
-                <div class="message-avatar"><i class="fas fa-robot"></i></div>
-                <div class="message-content">
-                    <p>${message}</p>
-                    <span class="message-time" style="font-size:0.75rem;color:#6b7280;margin-top:0.25rem;display:block;">${getCurrentTime()}</span>
-                </div>
-            `;
-            messagesContainer.appendChild(messageElement);
-            scrollToBottom();
-        }
-
-        function showTypingIndicator() {
-            const messagesContainer = document.getElementById('chat-messages');
-            const typingElement = document.createElement('div');
-            typingElement.className = 'typing-indicator';
-            typingElement.id = 'typing-indicator';
-            typingElement.innerHTML = `
-                <div class="message-avatar"><i class="fas fa-robot"></i></div>
-                <div style="display:flex;flex-direction:column;gap:0.25rem;">
-                    <div style="display:flex;gap:0.25rem;padding:0.75rem 1rem;background:white;border-radius:12px 12px 12px 4px;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
-                        <span style="width:6px;height:6px;background:#9ca3af;border-radius:50%;animation:typingDot 1.4s infinite;"></span>
-                        <span style="width:6px;height:6px;background:#9ca3af;border-radius:50%;animation:typingDot 1.4s infinite 0.2s;"></span>
-                        <span style="width:6px;height:6px;background:#9ca3af;border-radius:50%;animation:typingDot 1.4s infinite 0.4s;"></span>
-                    </div>
-                </div>
-            `;
-            messagesContainer.appendChild(typingElement);
-            scrollToBottom();
-        }
-
-        function hideTypingIndicator() {
-            const indicator = document.getElementById('typing-indicator');
-            if (indicator) indicator.remove();
-        }
-
-        function getBotResponse(message) {
-            const lowerMessage = message.toLowerCase();
-            
-            if (lowerMessage.includes('ahorro') || lowerMessage.includes('ahorrar')) {
-                return "Te recomiendo seguir la regla 50/30/20: 50% para gastos necesarios, 30% para gastos personales y 20% para ahorros. Automatiza tus ahorros para que sea más fácil y consistente.";
-            } else if (lowerMessage.includes('gasto') || lowerMessage.includes('analiza')) {
-                return "Tus principales categorías de gasto son: Alimentación (35%), Transporte (22%), Entretenimiento (15%) y Salud (12%). Te sugiero revisar la categoría de entretenimiento.";
-            } else if (lowerMessage.includes('presupuesto')) {
-                return "Para crear un presupuesto efectivo: 1) Registra todos tus ingresos, 2) Clasifica tus gastos en categorías, 3) Establece límites realistas, 4) Haz seguimiento regular.";
-            } else if (lowerMessage.includes('balance') || lowerMessage.includes('resumen')) {
-                return "Tu situación financiera actual es positiva. Tienes un balance favorable con una tendencia de crecimiento del 12.7% respecto al mes anterior.";
-            } else {
-                return "Puedo ayudarte con: análisis de gastos, consejos de ahorro, creación de presupuestos, estrategias de inversión y seguimiento de metas financieras. ¿Hay algo específico sobre lo que te gustaría hablar?";
-            }
-        }
-
-        function getCurrentTime() {
-            return new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-        }
-
-        function scrollToBottom() {
-            const messagesContainer = document.getElementById('chat-messages');
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-
         function changeChartType(type) {
-            document.querySelectorAll('.chart-btn').forEach(btn => {
-                btn.style.background = '#f3f4f6';
-                btn.style.color = '#6b7280';
-            });
-            event.target.closest('.chart-btn').style.background = '#4f46e5';
-            event.target.closest('.chart-btn').style.color = 'white';
+            document.querySelectorAll('.chart-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.closest('.chart-btn').classList.add('active');
             
             if (currentChart) currentChart.destroy();
             
@@ -1320,16 +1584,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
                 data: {
                     labels: ['Ingresos', 'Gastos', 'Ahorros'],
                     datasets: [{
-                        data: [3500, 1200, 800],
-                        backgroundColor: ['#10b981', '#ef4444', '#3b82f6'],
-                        borderWidth: 0
+                        data: [3500, 1200, 1245],
+                        backgroundColor: ['#10b981', '#ef4444', '#6366f1'],
+                        borderWidth: type === 'doughnut' ? 0 : 2
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } }
+                    plugins: { 
+                        legend: { 
+                            position: 'bottom',
+                            labels: { padding: 20, font: { size: 14, weight: '600' } }
+                        } 
+                    }
                 }
+            });
+        }
+
+        function animateProgressBars() {
+            document.querySelectorAll('.progress-fill').forEach(bar => {
+                const width = bar.style.width;
+                bar.style.width = '0%';
+                setTimeout(() => {
+                    bar.style.width = width;
+                }, 100);
             });
         }
 
@@ -1354,137 +1633,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
                 document.getElementById('formEliminarMeta').submit();
             }
         }
-
-        // Animación de tipeo para el chat
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes typingDot {
-                0%, 60%, 100% { transform: scale(1); opacity: 0.5; }
-                30% { transform: scale(1.2); opacity: 1; }
-            }
-            
-            /* ESTILOS PARA MENÚ MÓVIL */
-            .mobile-menu-btn {
-                display: none;
-                position: fixed;
-                top: 1rem;
-                left: 1rem;
-                z-index: 1001;
-                background: white;
-                border: none;
-                width: 50px;
-                height: 50px;
-                border-radius: 12px;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-                cursor: pointer;
-                align-items: center;
-                justify-content: center;
-                font-size: 1.25rem;
-                color: var(--primary);
-                transition: all 0.3s ease;
-            }
-            
-            .mobile-menu-btn:hover {
-                background: var(--primary);
-                color: white;
-                transform: scale(1.05);
-            }
-            
-            .mobile-menu-btn:active {
-                transform: scale(0.95);
-            }
-            
-            .sidebar-close-btn {
-                display: none;
-                position: absolute;
-                top: 1rem;
-                right: 1rem;
-                background: rgba(239, 68, 68, 0.1);
-                border: none;
-                width: 36px;
-                height: 36px;
-                border-radius: 50%;
-                cursor: pointer;
-                align-items: center;
-                justify-content: center;
-                font-size: 1.1rem;
-                color: #ef4444;
-                transition: all 0.3s ease;
-                z-index: 1001;
-            }
-            
-            .sidebar-close-btn:hover {
-                background: #ef4444;
-                color: white;
-            }
-            
-            .sidebar-overlay {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.5);
-                z-index: 999;
-                display: none;
-                opacity: 0;
-                transition: opacity 0.3s ease;
-            }
-            
-            .sidebar-overlay.active {
-                opacity: 1;
-            }
-            
-            /* Estilos móvil para sidebar */
-            @media (max-width: 768px) {
-                .sidebar {
-                    position: fixed;
-                    left: -100%;
-                    width: 280px;
-                    transition: left 0.3s ease;
-                    z-index: 1100;
-                    box-shadow: 2px 0 20px rgba(0, 0, 0, 0.3);
-                }
-                
-                .sidebar.active {
-                    left: 0;
-                }
-                
-                .sidebar-close-btn {
-                    display: flex;
-                }
-                
-                .main-content {
-                    margin-left: 0;
-                }
-                
-                /* Ajustar header cuando hay menú hamburguesa */
-                .header {
-                    margin-top: 4rem;
-                }
-            }
-            
-            @media (max-width: 480px) {
-                .mobile-menu-btn {
-                    width: 45px;
-                    height: 45px;
-                    font-size: 1.1rem;
-                }
-                
-                .sidebar {
-                    width: 260px;
-                }
-            }
-            
-            @media print {
-                .sidebar, .chat-fab, .chatbot-container, .logout-btn, .add-btn, 
-                .meta-action-btn, .alerta-cerrar, .mobile-menu-btn, .sidebar-overlay,
-                .sidebar-close-btn { display: none !important; }
-                .main-content { margin-left: 0; padding: 0; margin-top: 0; }
-                .header { margin-top: 0; }
-            }
-        `;
-        document.head.appendChild(style);
     </script>
 </body>
 </html>
