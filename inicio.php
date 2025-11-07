@@ -19,20 +19,20 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
     : $rutaDefault;
 
 // Configuración de base de datos PostgreSQL
-$host = "dpg-d3cp1eumcj7s73dpm8sg-a.oregon-postgres.render.com"; 
+$host = 'dpg-d421923ipnbc73buvavg-a.oregon-postgres.render.com';
 $port = "5432"; 
-$dbname = "db_finanzas_fxs9"; 
-$user = "db_finanzas_fxs9_user"; 
-$password = "MzArnjJx2t87VeEF1Cr03C35Qv3M49CU"; 
+$dbname = "db_finabiz"; 
+$user = "db_finabiz_user"; 
+$password = "AkwKCIh1aJYNAqd687v8a6WZWgun5Axm"; 
 
 function conectarPostgreSQL($host, $port, $dbname, $user, $password) {
     try {
-        $dsn = "pgsql:host=$host;port=$port;dbname=$dbname;";
+        $dsn = "pgsql:host=$host;port=$port;dbname=$dbname;sslmode=require";
         $connection = new PDO($dsn, $user, $password, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
-            PDO::ATTR_PERSISTENT => true
+            PDO::ATTR_TIMEOUT => 10
         ]);
         return $connection;
     } catch (PDOException $e) {
@@ -49,90 +49,212 @@ $alertas = [];
 $habitos_semana = [];
 $analisis_habitos = [];
 $resumen_habitos = [];
+$metas_usuario = [];
 
 if ($conexion_pdo) {
-    require_once 'modelo/logros.php';
-    $sistemaLogros = new SistemaLogros($conexion_pdo);
-    $sistemaLogros->verificarLogros($_SESSION['id_usuario']);
-    $logros_usuario = $sistemaLogros->getLogrosUsuario($_SESSION['id_usuario'], 5);
-    $sistemaLogros->marcarLogrosComoVistos($_SESSION['id_usuario']);
+    // Cargar logros con manejo de errores
+    if (file_exists('modelo/logros.php')) {
+        require_once 'modelo/logros.php';
+        try {
+            $sistemaLogros = new SistemaLogros($conexion_pdo);
+            $sistemaLogros->verificarLogros($_SESSION['id_usuario']);
+            $logros_usuario = $sistemaLogros->getLogrosUsuario($_SESSION['id_usuario'], 5);
+            $sistemaLogros->marcarLogrosComoVistos($_SESSION['id_usuario']);
+        } catch (Exception $e) {
+            error_log("Error cargando logros: " . $e->getMessage());
+            $logros_usuario = [];
+        }
+    }
     
-    require_once 'modelo/alertas.php';
-    $sistemaAlertas = new AlertasInteligentes($conexion_pdo);
-    $alertas = $sistemaAlertas->generarAlertas($_SESSION['id_usuario']);
+    // Cargar alertas con manejo de errores
+    if (file_exists('modelo/alertas.php')) {
+        require_once 'modelo/alertas.php';
+        try {
+            $sistemaAlertas = new AlertasInteligentes($conexion_pdo);
+            $alertas = $sistemaAlertas->generarAlertas($_SESSION['id_usuario']);
+        } catch (Exception $e) {
+            error_log("Error cargando alertas: " . $e->getMessage());
+            $alertas = [];
+        }
+    }
     
-    require_once 'modelo/habitos.php';
-    $analisisHabitos = new AnalisisHabitos($conexion_pdo);
-    $habitos_semana = $analisisHabitos->getHabitosSemana($_SESSION['id_usuario']);
-    $analisis_habitos = $analisisHabitos->getAnalisisHabitos($_SESSION['id_usuario']);
-    $resumen_habitos = $analisisHabitos->getResumenHabitos($_SESSION['id_usuario']);
+    // Cargar hábitos con manejo de errores
+    if (file_exists('modelo/habitos.php')) {
+        require_once 'modelo/habitos.php';
+        try {
+            $analisisHabitos = new AnalisisHabitos($conexion_pdo);
+            $habitos_semana = $analisisHabitos->getHabitosSemana($_SESSION['id_usuario']);
+            $analisis_habitos = $analisisHabitos->getAnalisisHabitos($_SESSION['id_usuario']);
+            $resumen_habitos = $analisisHabitos->getResumenHabitos($_SESSION['id_usuario']);
+        } catch (Exception $e) {
+            error_log("Error cargando hábitos: " . $e->getMessage());
+            $habitos_semana = [];
+            $analisis_habitos = [];
+            $resumen_habitos = [];
+        }
+    }
+    
+    // Cargar metas del usuario - CORREGIDO: usar usuario_id en lugar de id_usuario
+    try {
+        $sql_metas = "SELECT * FROM metas WHERE usuario_id = :usuario_id AND estado != 'completada' ORDER BY fecha_creacion DESC";
+        $stmt_metas = $conexion_pdo->prepare($sql_metas);
+        $stmt_metas->execute([':usuario_id' => $_SESSION['id_usuario']]);
+        $metas_usuario = $stmt_metas->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Error cargando metas: " . $e->getMessage());
+        $metas_usuario = [];
+    }
 }
 
-// Procesar formularios de metas
+// Procesar formularios de metas con manejo de errores
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
-    $id_usuario = $_SESSION['id_usuario'];
+    $usuario_id = $_SESSION['id_usuario']; // Cambiado a usuario_id para consistencia
     
-    if (isset($_POST['crear_meta'])) {
-        $sql = "INSERT INTO metas (id_usuario, nombre_meta, descripcion, meta_total, icono, fecha_objetivo) 
-                VALUES (:id_usuario, :nombre_meta, :descripcion, :meta_total, :icono, :fecha_objetivo)";
-        $stmt = $conexion_pdo->prepare($sql);
-        $resultado = $stmt->execute([
-            ':id_usuario' => $id_usuario,
-            ':nombre_meta' => $_POST['nombre_meta'],
-            ':descripcion' => $_POST['descripcion'],
-            ':meta_total' => floatval($_POST['meta_total']),
-            ':icono' => $_POST['icono'],
-            ':fecha_objetivo' => !empty($_POST['fecha_objetivo']) ? $_POST['fecha_objetivo'] : null
-        ]);
-        $_SESSION['mensaje_exito'] = $resultado ? "Meta creada exitosamente" : "Error al crear la meta";
-    }
-    
-    if (isset($_POST['agregar_monto'])) {
-        $id_meta = intval($_POST['id_meta']);
-        $monto = floatval($_POST['monto_agregar']);
-        
-        $sql = "UPDATE metas SET monto_actual = monto_actual + :monto WHERE id_meta = :id_meta AND id_usuario = :id_usuario";
-        $stmt = $conexion_pdo->prepare($sql);
-        $stmt->execute([':monto' => $monto, ':id_meta' => $id_meta, ':id_usuario' => $id_usuario]);
-        
-        $sql_check = "SELECT monto_actual, meta_total FROM metas WHERE id_meta = :id_meta";
-        $stmt_check = $conexion_pdo->prepare($sql_check);
-        $stmt_check->execute([':id_meta' => $id_meta]);
-        $meta = $stmt_check->fetch();
-        
-        if ($meta && $meta['monto_actual'] >= $meta['meta_total']) {
-            $conexion_pdo->prepare("UPDATE metas SET estado = 'completada' WHERE id_meta = :id_meta")
-                ->execute([':id_meta' => $id_meta]);
-            $conexion_pdo->prepare("INSERT INTO logros (id_usuario, tipo_logro, mensaje, icono) VALUES (:id_usuario, 'meta_completada', '¡Felicidades! Completaste una meta de ahorro', '🎯')")
-                ->execute([':id_usuario' => $id_usuario]);
+    try {
+        if (isset($_POST['crear_meta'])) {
+            // CORREGIDO: usar usuario_id en lugar de id_usuario
+            $sql = "INSERT INTO metas (usuario_id, nombre_meta, descripcion, meta_total, icono, fecha_objetivo) 
+                    VALUES (:usuario_id, :nombre_meta, :descripcion, :meta_total, :icono, :fecha_objetivo)";
+            $stmt = $conexion_pdo->prepare($sql);
+            $resultado = $stmt->execute([
+                ':usuario_id' => $usuario_id, // Cambiado aquí
+                ':nombre_meta' => $_POST['nombre_meta'],
+                ':descripcion' => $_POST['descripcion'],
+                ':meta_total' => floatval($_POST['meta_total']),
+                ':icono' => $_POST['icono'],
+                ':fecha_objetivo' => !empty($_POST['fecha_objetivo']) ? $_POST['fecha_objetivo'] : null
+            ]);
+            $_SESSION['mensaje_exito'] = $resultado ? "Meta creada exitosamente" : "Error al crear la meta";
         }
-        $_SESSION['mensaje_exito'] = "Monto agregado exitosamente";
-    }
-    
-    if (isset($_POST['editar_meta'])) {
-        $sql = "UPDATE metas SET nombre_meta = :nombre_meta, descripcion = :descripcion, meta_total = :meta_total, icono = :icono, fecha_objetivo = :fecha_objetivo WHERE id_meta = :id_meta AND id_usuario = :id_usuario";
-        $stmt = $conexion_pdo->prepare($sql);
-        $stmt->execute([
-            ':nombre_meta' => $_POST['nombre_meta'],
-            ':descripcion' => $_POST['descripcion'],
-            ':meta_total' => floatval($_POST['meta_total']),
-            ':icono' => $_POST['icono'],
-            ':fecha_objetivo' => !empty($_POST['fecha_objetivo']) ? $_POST['fecha_objetivo'] : null,
-            ':id_meta' => intval($_POST['id_meta']),
-            ':id_usuario' => $id_usuario
-        ]);
-        $_SESSION['mensaje_exito'] = "Meta actualizada exitosamente";
-    }
-    
-    if (isset($_POST['eliminar_meta'])) {
-        $conexion_pdo->prepare("DELETE FROM metas WHERE id_meta = :id_meta AND id_usuario = :id_usuario")
-            ->execute([':id_meta' => intval($_POST['id_meta']), ':id_usuario' => $id_usuario]);
-        $_SESSION['mensaje_exito'] = "Meta eliminada exitosamente";
+        
+        if (isset($_POST['agregar_monto'])) {
+            $id_meta = intval($_POST['id_meta']);
+            $monto = floatval($_POST['monto_agregar']);
+            
+            // CORREGIDO: usar usuario_id
+            $sql = "UPDATE metas SET monto_actual = monto_actual + :monto WHERE id = :id_meta AND usuario_id = :usuario_id";
+            $stmt = $conexion_pdo->prepare($sql);
+            $stmt->execute([
+                ':monto' => $monto, 
+                ':id_meta' => $id_meta, 
+                ':usuario_id' => $usuario_id // Cambiado aquí
+            ]);
+            
+            $sql_check = "SELECT monto_actual, meta_total FROM metas WHERE id = :id_meta";
+            $stmt_check = $conexion_pdo->prepare($sql_check);
+            $stmt_check->execute([':id_meta' => $id_meta]);
+            $meta = $stmt_check->fetch();
+            
+            if ($meta && $meta['monto_actual'] >= $meta['meta_total']) {
+                $conexion_pdo->prepare("UPDATE metas SET estado = 'completada' WHERE id = :id_meta")
+                    ->execute([':id_meta' => $id_meta]);
+                $conexion_pdo->prepare("INSERT INTO logros (usuario_id, tipo_logro, mensaje, icono) VALUES (:usuario_id, 'meta_completada', '¡Felicidades! Completaste una meta de ahorro', '🎯')")
+                    ->execute([':usuario_id' => $usuario_id]); // Cambiado aquí
+            }
+            $_SESSION['mensaje_exito'] = "Monto agregado exitosamente";
+        }
+        
+        if (isset($_POST['editar_meta'])) {
+            // CORREGIDO: usar usuario_id
+            $sql = "UPDATE metas SET nombre_meta = :nombre_meta, descripcion = :descripcion, meta_total = :meta_total, icono = :icono, fecha_objetivo = :fecha_objetivo WHERE id = :id_meta AND usuario_id = :usuario_id";
+            $stmt = $conexion_pdo->prepare($sql);
+            $stmt->execute([
+                ':nombre_meta' => $_POST['nombre_meta'],
+                ':descripcion' => $_POST['descripcion'],
+                ':meta_total' => floatval($_POST['meta_total']),
+                ':icono' => $_POST['icono'],
+                ':fecha_objetivo' => !empty($_POST['fecha_objetivo']) ? $_POST['fecha_objetivo'] : null,
+                ':id_meta' => intval($_POST['id_meta']),
+                ':usuario_id' => $usuario_id // Cambiado aquí
+            ]);
+            $_SESSION['mensaje_exito'] = "Meta actualizada exitosamente";
+        }
+        
+        if (isset($_POST['eliminar_meta'])) {
+            // CORREGIDO: usar usuario_id
+            $conexion_pdo->prepare("DELETE FROM metas WHERE id = :id_meta AND usuario_id = :usuario_id")
+                ->execute([
+                    ':id_meta' => intval($_POST['id_meta']), 
+                    ':usuario_id' => $usuario_id // Cambiado aquí
+                ]);
+            $_SESSION['mensaje_exito'] = "Meta eliminada exitosamente";
+        }
+        
+    } catch (PDOException $e) {
+        error_log("Error en operación POST: " . $e->getMessage());
+        $_SESSION['mensaje_error'] = "Error en la operación: " . $e->getMessage();
     }
     
     header("Location: " . $_SERVER['PHP_SELF']);
     exit();
 }
+
+// Obtener datos para las estadísticas
+$total_ingresos = 0;
+$total_gastos = 0;
+$balance = 0;
+$ahorros_mes = 0;
+
+if ($conexion_pdo) {
+    try {
+        // Obtener total de ingresos del mes actual - CORREGIDO: usar usuario_id
+        $sql_ingresos = "SELECT COALESCE(SUM(monto), 0) as total FROM ingresos WHERE usuario_id = :usuario_id AND EXTRACT(MONTH FROM fecha) = EXTRACT(MONTH FROM CURRENT_DATE)";
+        $stmt_ingresos = $conexion_pdo->prepare($sql_ingresos);
+        $stmt_ingresos->execute([':usuario_id' => $_SESSION['id_usuario']]);
+        $result_ingresos = $stmt_ingresos->fetch();
+        $total_ingresos = $result_ingresos['total'];
+
+        // Obtener total de gastos del mes actual - CORREGIDO: usar usuario_id
+        $sql_gastos = "SELECT COALESCE(SUM(monto), 0) as total FROM gastos WHERE usuario_id = :usuario_id AND EXTRACT(MONTH FROM fecha) = EXTRACT(MONTH FROM CURRENT_DATE)";
+        $stmt_gastos = $conexion_pdo->prepare($sql_gastos);
+        $stmt_gastos->execute([':usuario_id' => $_SESSION['id_usuario']]);
+        $result_gastos = $stmt_gastos->fetch();
+        $total_gastos = $result_gastos['total'];
+
+        $balance = $total_ingresos - $total_gastos;
+        $ahorros_mes = max(0, $total_ingresos - $total_gastos);
+        
+    } catch (PDOException $e) {
+        error_log("Error calculando estadísticas: " . $e->getMessage());
+    }
+}
+
+// Obtener gastos por categoría del mes actual
+$gastos_por_categoria = [];
+$total_gastos_categorias = 0;
+if ($conexion_pdo) {
+    try {
+        $sql_categorias = "SELECT categoria, COALESCE(SUM(monto), 0) as total 
+                          FROM gastos 
+                          WHERE usuario_id = :usuario_id 
+                          AND EXTRACT(MONTH FROM fecha) = EXTRACT(MONTH FROM CURRENT_DATE)
+                          GROUP BY categoria
+                          ORDER BY total DESC";
+        $stmt_categorias = $conexion_pdo->prepare($sql_categorias);
+        $stmt_categorias->execute([':usuario_id' => $_SESSION['id_usuario']]);
+        $gastos_por_categoria = $stmt_categorias->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Calcular total para porcentajes
+        foreach ($gastos_por_categoria as $gasto) {
+            $total_gastos_categorias += $gasto['total'];
+        }
+        
+    } catch (PDOException $e) {
+        error_log("Error cargando gastos por categoría: " . $e->getMessage());
+    }
+}
+
+// Iconos por categoría
+$iconos_categorias = [
+    'Alimentación' => ['icon' => 'utensils', 'class' => 'food'],
+    'Transporte' => ['icon' => 'car', 'class' => 'transport'],
+    'Entretenimiento' => ['icon' => 'film', 'class' => 'entertainment'],
+    'Salud' => ['icon' => 'heartbeat', 'class' => 'health'],
+    'Educación' => ['icon' => 'graduation-cap', 'class' => 'education'],
+    'Ropa' => ['icon' => 'tshirt', 'class' => 'clothing'],
+    'Hogar' => ['icon' => 'home', 'class' => 'home'],
+    'Otros' => ['icon' => 'shopping-cart', 'class' => 'other']
+];
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -790,6 +912,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
             background: linear-gradient(135deg, #ef4444, #f87171);
         }
 
+        .expense-icon.education {
+            background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+        }
+
+        .expense-icon.clothing {
+            background: linear-gradient(135deg, #ec4899, #f472b6);
+        }
+
+        .expense-icon.home {
+            background: linear-gradient(135deg, #f59e0b, #fbbf24);
+        }
+
+        .expense-icon.other {
+            background: linear-gradient(135deg, #6b7280, #9ca3af);
+        }
+
         .expense-details {
             flex: 1;
         }
@@ -1060,10 +1198,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
                     <i class="fas fa-arrow-trend-up"></i>
                 </div>
                 <div class="stat-label">Ingresos Totales</div>
-                <div class="stat-value">S/ <?php include 'modelo/totalIngreso.php'; ?></div>
-                <div class="stat-trend trend-positive">
-                    <i class="fas fa-arrow-up"></i>
-                    <span>8.2% vs mes anterior</span>
+                <div class="stat-value">S/ <?php echo number_format($total_ingresos, 2); ?></div>
+                <div class="stat-trend <?php echo $total_ingresos > 0 ? 'trend-positive' : 'trend-negative'; ?>">
+                    <i class="fas fa-<?php echo $total_ingresos > 0 ? 'arrow-up' : 'arrow-down'; ?>"></i>
+                    <span><?php echo $total_ingresos > 0 ? '8.2% vs mes anterior' : 'Sin datos del mes anterior'; ?></span>
                 </div>
             </div>
 
@@ -1072,10 +1210,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
                     <i class="fas fa-arrow-trend-down"></i>
                 </div>
                 <div class="stat-label">Gastos Totales</div>
-                <div class="stat-value">S/ <?php include 'modelo/total.php'; ?></div>
-                <div class="stat-trend trend-positive">
-                    <i class="fas fa-arrow-down"></i>
-                    <span>3.5% vs mes anterior</span>
+                <div class="stat-value">S/ <?php echo number_format($total_gastos, 2); ?></div>
+                <div class="stat-trend <?php echo $total_gastos > 0 ? 'trend-positive' : 'trend-negative'; ?>">
+                    <i class="fas fa-<?php echo $total_gastos > 0 ? 'arrow-down' : 'arrow-up'; ?>"></i>
+                    <span><?php echo $total_gastos > 0 ? '3.5% vs mes anterior' : 'Sin datos del mes anterior'; ?></span>
                 </div>
             </div>
 
@@ -1084,14 +1222,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
                     <i class="fas fa-wallet"></i>
                 </div>
                 <div class="stat-label">Balance Actual</div>
-                <div class="stat-value">S/ <?php 
-                    $ingresos = file_get_contents('modelo/totalIngreso.php');
-                    $gastos = file_get_contents('modelo/total.php');
-                    echo number_format(floatval($ingresos) - floatval($gastos), 2);
-                ?></div>
-                <div class="stat-trend trend-positive">
-                    <i class="fas fa-arrow-up"></i>
-                    <span>12.7% vs mes anterior</span>
+                <div class="stat-value">S/ <?php echo number_format($balance, 2); ?></div>
+                <div class="stat-trend <?php echo $balance > 0 ? 'trend-positive' : 'trend-negative'; ?>">
+                    <i class="fas fa-<?php echo $balance > 0 ? 'arrow-up' : 'arrow-down'; ?>"></i>
+                    <span><?php echo $balance != 0 ? '12.7% vs mes anterior' : 'Sin movimientos'; ?></span>
                 </div>
             </div>
 
@@ -1100,10 +1234,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
                     <i class="fas fa-piggy-bank"></i>
                 </div>
                 <div class="stat-label">Ahorros del Mes</div>
-                <div class="stat-value">S/ 1,245.50</div>
-                <div class="stat-trend trend-positive">
-                    <i class="fas fa-arrow-up"></i>
-                    <span>15.3% vs mes anterior</span>
+                <div class="stat-value">
+                    S/ <?php echo number_format($ahorros_mes, 2); ?>
+                </div>
+                <div class="stat-trend <?php echo $ahorros_mes > 0 ? 'trend-positive' : 'trend-negative'; ?>">
+                    <i class="fas fa-<?php echo $ahorros_mes > 0 ? 'arrow-up' : 'arrow-down'; ?>"></i>
+                    <span>
+                        <?php 
+                        if ($ahorros_mes > 0) {
+                            echo 'Ahorro activo';
+                        } else if ($total_ingresos > 0 && $total_gastos > 0) {
+                            echo 'Sin ahorro este mes';
+                        } else {
+                            echo 'Sin datos disponibles';
+                        }
+                        ?>
+                    </span>
                 </div>
             </div>
         </div>
@@ -1176,14 +1322,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
 
                 <div>
                     <?php
-                    if ($conexion_pdo) {
-                        $stmt = $conexion_pdo->prepare("SELECT * FROM metas WHERE id_usuario = :id_usuario AND estado = 'activa' ORDER BY fecha_creacion DESC LIMIT 5");
-                        $stmt->execute([':id_usuario' => $_SESSION['id_usuario']]);
-                        $metas = $stmt->fetchAll();
-                        
-                        if (!empty($metas)):
-                            foreach ($metas as $meta):
-                                $porcentaje = $meta['meta_total'] > 0 ? min(round(($meta['monto_actual'] / $meta['meta_total']) * 100), 100) : 0;
+                    if (!empty($metas_usuario)):
+                        foreach ($metas_usuario as $meta):
+                            // CORREGIDO: usar 'id' en lugar de 'id_meta' si es necesario
+                            $meta_id = isset($meta['id']) ? $meta['id'] : $meta['id_meta'];
+                            $porcentaje = $meta['meta_total'] > 0 ? min(round(($meta['monto_actual'] / $meta['meta_total']) * 100), 100) : 0;
                     ?>
                     <div class="goal-item">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
@@ -1192,15 +1335,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
                             </span>
                             <div style="display:flex;gap:0.5rem;">
                                 <button style="background:none;border:none;color:var(--success);cursor:pointer;padding:0.25rem;font-size:1.1rem;" 
-                                        onclick="abrirModalAgregarMonto(<?php echo $meta['id_meta']; ?>)" title="Agregar monto">
+                                        onclick="abrirModalAgregarMonto(<?php echo $meta_id; ?>)" title="Agregar monto">
                                     <i class="fas fa-plus-circle"></i>
                                 </button>
                                 <button style="background:none;border:none;color:var(--primary);cursor:pointer;padding:0.25rem;font-size:1.1rem;" 
-                                        onclick="abrirModalEditarMeta(<?php echo $meta['id_meta']; ?>)" title="Editar">
+                                        onclick="abrirModalEditarMeta(<?php echo $meta_id; ?>)" title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </button>
                                 <button style="background:none;border:none;color:var(--danger);cursor:pointer;padding:0.25rem;font-size:1.1rem;" 
-                                        onclick="confirmarEliminarMeta(<?php echo $meta['id_meta']; ?>)" title="Eliminar">
+                                        onclick="confirmarEliminarMeta(<?php echo $meta_id; ?>)" title="Eliminar">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
@@ -1221,8 +1364,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
                         </div>
                     </div>
                     <?php 
-                            endforeach;
-                        else:
+                        endforeach;
+                    else:
                     ?>
                         <div style="text-align:center;padding:3rem 1rem;color:var(--gray);">
                             <i class="fas fa-bullseye" style="font-size:3.5rem;margin-bottom:1rem;opacity:0.3;"></i>
@@ -1230,8 +1373,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
                             <p style="font-size:0.9rem;">¡Crea tu primera meta de ahorro!</p>
                         </div>
                     <?php 
-                        endif;
-                    }
+                    endif;
                     ?>
                 </div>
             </div>
@@ -1274,49 +1416,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
                 </h3>
             </div>
 
-            <div class="expense-item">
-                <div class="expense-icon food">
-                    <i class="fas fa-utensils"></i>
+            <?php if (!empty($gastos_por_categoria)): ?>
+                <?php foreach ($gastos_por_categoria as $gasto): 
+                    $categoria = $gasto['categoria'];
+                    $monto = $gasto['total'];
+                    $porcentaje = $total_gastos_categorias > 0 ? round(($monto / $total_gastos_categorias) * 100) : 0;
+                    
+                    // Obtener icono y clase CSS para la categoría
+                    $icono_info = $iconos_categorias[$categoria] ?? ['icon' => 'shopping-cart', 'class' => 'other'];
+                ?>
+                <div class="expense-item">
+                    <div class="expense-icon <?php echo $icono_info['class']; ?>">
+                        <i class="fas fa-<?php echo $icono_info['icon']; ?>"></i>
+                    </div>
+                    <div class="expense-details">
+                        <div class="expense-category"><?php echo htmlspecialchars($categoria); ?></div>
+                        <div class="expense-amount">S/ <?php echo number_format($monto, 2); ?></div>
+                    </div>
+                    <div class="expense-percentage"><?php echo $porcentaje; ?>%</div>
                 </div>
-                <div class="expense-details">
-                    <div class="expense-category">Alimentación</div>
-                    <div class="expense-amount">S/ 425.80</div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div style="text-align:center;padding:3rem 1rem;color:var(--gray);">
+                    <i class="fas fa-chart-pie" style="font-size:3.5rem;margin-bottom:1rem;opacity:0.3;"></i>
+                    <p style="font-weight:600;">No hay gastos registrados este mes</p>
+                    <p style="font-size:0.9rem;">¡Comienza a registrar tus gastos para ver estadísticas!</p>
                 </div>
-                <div class="expense-percentage">35%</div>
-            </div>
-
-            <div class="expense-item">
-                <div class="expense-icon transport">
-                    <i class="fas fa-car"></i>
-                </div>
-                <div class="expense-details">
-                    <div class="expense-category">Transporte</div>
-                    <div class="expense-amount">S/ 180.50</div>
-                </div>
-                <div class="expense-percentage">22%</div>
-            </div>
-
-            <div class="expense-item">
-                <div class="expense-icon entertainment">
-                    <i class="fas fa-film"></i>
-                </div>
-                <div class="expense-details">
-                    <div class="expense-category">Entretenimiento</div>
-                    <div class="expense-amount">S/ 120.00</div>
-                </div>
-                <div class="expense-percentage">15%</div>
-            </div>
-
-            <div class="expense-item">
-                <div class="expense-icon health">
-                    <i class="fas fa-heartbeat"></i>
-                </div>
-                <div class="expense-details">
-                    <div class="expense-category">Salud</div>
-                    <div class="expense-amount">S/ 95.30</div>
-                </div>
-                <div class="expense-percentage">12%</div>
-            </div>
+            <?php endif; ?>
         </div>
     </main>
 
@@ -1530,12 +1656,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
             const ctx = canvas.getContext('2d');
             if (currentChart) currentChart.destroy();
             
+            // Usar datos reales de PHP
+            const ingresos = <?php echo $total_ingresos; ?>;
+            const gastos = <?php echo $total_gastos; ?>;
+            const ahorros = <?php echo $ahorros_mes; ?>;
+            
             currentChart = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
                     labels: ['Ingresos', 'Gastos', 'Ahorros'],
                     datasets: [{
-                        data: [3500, 1200, 1245],
+                        data: [ingresos, gastos, ahorros],
                         backgroundColor: ['#10b981', '#ef4444', '#6366f1'],
                         borderWidth: 0,
                         cutout: '70%'
@@ -1562,7 +1693,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
                                     const label = context.label || '';
                                     const value = context.parsed;
                                     const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const percentage = Math.round((value / total) * 100);
+                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
                                     return `${label}: S/ ${value.toLocaleString()} (${percentage}%)`;
                                 }
                             }
@@ -1579,12 +1710,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conexion_pdo) {
             if (currentChart) currentChart.destroy();
             
             const ctx = document.getElementById('financialChart').getContext('2d');
+            
+            // Usar datos reales de PHP
+            const ingresos = <?php echo $total_ingresos; ?>;
+            const gastos = <?php echo $total_gastos; ?>;
+            const ahorros = <?php echo $ahorros_mes; ?>;
+            
             currentChart = new Chart(ctx, {
                 type: type,
                 data: {
                     labels: ['Ingresos', 'Gastos', 'Ahorros'],
                     datasets: [{
-                        data: [3500, 1200, 1245],
+                        data: [ingresos, gastos, ahorros],
                         backgroundColor: ['#10b981', '#ef4444', '#6366f1'],
                         borderWidth: type === 'doughnut' ? 0 : 2
                     }]

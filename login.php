@@ -1,5 +1,4 @@
 <?php
-require 'modelo/conexion.php';
 session_start();
 
 $error_message = '';
@@ -8,46 +7,45 @@ if ($_POST) {
     $email = $_POST['email'];
     $password = $_POST['password'];
 
-    try {
-        // Preparamos la consulta con parámetros
-        $stmt = $connection->prepare("SELECT id_usuario, nombre, password, foto_perfil FROM usuarios WHERE correo = :correo");
-        $stmt->execute([':correo' => $email]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    // Llamar a la API de Django para login
+    $url = 'http://localhost:8000/api/login/';
+    $data = [
+        'correo' => $email,
+        'password' => $password
+    ];
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Accept: application/json'
+    ]);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+    
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curl_error = curl_error($ch);
+    curl_close($ch);
+    
+    if ($curl_error) {
+        $error_message = "Error de conexión: " . $curl_error;
+    } else {
+        $result = json_decode($response, true);
+        
+        if ($http_code === 200 && $result['success']) {
+            // Login exitoso
+            $_SESSION['nombre'] = $result['user']['nombre'];
+            $_SESSION['id_usuario'] = $result['user']['id'];
+            $_SESSION['foto_perfil'] = $result['user']['foto_perfil'];
 
-        if ($row) {
-            $password_bd = $row['password'];
-
-            // ✅ VERIFICACIÓN CORREGIDA - Maneja NULL y ambos tipos de contraseña
-            $login_valid = false;
-            
-            if ($password_bd === null || $password_bd === '') {
-                // Usuario sin contraseña (probablemente de Google)
-                $error_message = "Este usuario se registró con Google. Por favor usa 'Iniciar con Google'";
-            } 
-            // Primero verificar si coincide en texto plano (para usuarios existentes)
-            else if ($password_bd === $password) {
-                $login_valid = true;
-            }
-            // Luego verificar con password_verify (para usuarios nuevos)
-            else if (password_verify($password, $password_bd)) {
-                $login_valid = true;
-            }
-
-            if ($login_valid) {
-                $_SESSION['nombre'] = $row['nombre'];
-                $_SESSION['id_usuario'] = $row['id_usuario'];
-                $_SESSION['foto_perfil'] = $row['foto_perfil'];
-
-                header('Location: inicio.php');
-                exit;
-            } else if ($password_bd !== null && $password_bd !== '') {
-                $error_message = "La contraseña no coincide";
-            }
+            header('Location: inicio.php');
+            exit;
         } else {
-            $error_message = "No existe un usuario con ese correo";
+            $error_message = $result['message'] ?? 'Error desconocido';
         }
-    } catch (PDOException $e) {
-        $error_message = "Error en la base de datos: " . $e->getMessage();
     }
 }
 ?>

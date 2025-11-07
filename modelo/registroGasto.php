@@ -2,41 +2,41 @@
 session_start();
 require_once 'conexion.php';
 
-if (!isset($_SESSION['id_usuario'])) {
-    header("Location: index.php");
-    exit;
-}
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $id_usuario = $_SESSION['id_usuario'];
+    $monto = floatval($_POST['monto']);
+    $forma_pago = $_POST['forma_pago'];
+    $fecha = $_POST['fecha'];
+    $categoria_id = $_POST['categoria_id'];
+    $nota = $_POST['nota'];
 
-$id_usu    = $_SESSION['id_usuario'];
-$monto     = $_POST['monto'] ?? 0;
-$forma_pago = $_POST['forma_pago'] ?? '';
-$categoria  = $_POST['categoria'] ?? '';
-$nota       = $_POST['nota'] ?? '';
-$fecha      = date("Y-m-d");
-
-try {
-    // Insertar con consulta preparada (más seguro)
-    $sql = "INSERT INTO gastos (id_usuario, monto, forma_pago, fecha, id_categoria, nota) 
-            VALUES (:id_usuario, :monto, :forma_pago, :fecha, :id_categoria, :nota)";
-    
-    $stmt = $connection->prepare($sql);
-    $resultado = $stmt->execute([
-        ':id_usuario'  => $id_usu,
-        ':monto'       => $monto,
-        ':forma_pago'  => $forma_pago,
-        ':fecha'       => $fecha,
-        ':id_categoria'=> $categoria,
-        ':nota'        => $nota
-    ]);
-
-    if ($resultado) {
-        header('Location: ../gasto.php');
-        exit;
-    } else {
-        echo "Error al insertar el registro.";
+    // Validar datos
+    if ($monto <= 0 || empty($forma_pago) || empty($fecha) || empty($categoria_id) || empty($nota)) {
+        $_SESSION['error'] = "Todos los campos son obligatorios y el monto debe ser mayor a 0";
+        header("Location: ../gasto.php");
+        exit();
     }
 
-} catch (PDOException $e) {
-    echo "Error en la base de datos: " . $e->getMessage();
+    // Insertar en la base de datos
+    $sql = "INSERT INTO gastos (usuario_id, monto, forma_pago, fecha, categoria_id, nota) VALUES (?, ?, ?, ?, ?, ?)";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("idssis", $id_usuario, $monto, $forma_pago, $fecha, $categoria_id, $nota);
+
+    if ($stmt->execute()) {
+        $_SESSION['success'] = "Gasto registrado correctamente";
+        
+        // Verificar logros
+        require_once 'logros.php';
+        verificarLogroPrimerGasto($id_usuario);
+        
+    } else {
+        $_SESSION['error'] = "Error al registrar el gasto: " . $conn->error;
+    }
+
+    $stmt->close();
+    $conn->close();
+
+    header("Location: ../gasto.php");
+    exit();
 }
 ?>

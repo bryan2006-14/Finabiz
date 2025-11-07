@@ -1,22 +1,99 @@
 <?php
 session_start();
 if (!isset($_SESSION['id_usuario'])) {
-    header("Location:index.php");
+    header("Location: index.php");
+    exit();
 }
-$nombre = $_SESSION['nombre'];
+
+require_once 'modelo/conexion.php';
 require_once 'modelo/config.php';
+
+$nombre = $_SESSION['nombre'];
+$id_usuario = $_SESSION['id_usuario'];
 $fotoPerfil = $_SESSION['foto_perfil'];
 $rutaDefault = "recursos/img/default-avatar.png";
 $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
     ? "fotos/" . $fotoPerfil
     : $rutaDefault;
 
-// Obtener datos del usuario (simulado - debes reemplazar con tu lógica real)
-$datosUsuario = [
-    'nombre' => $nombre,
-    'correo' => 'usuario@ejemplo.com', // Reemplaza con datos reales de tu BD
-    'password' => '********' // No mostrar contraseña real
-];
+// Obtener datos reales del usuario desde la base de datos
+$datosUsuario = obtenerDatosUsuario($conn, $id_usuario);
+if (!$datosUsuario) {
+    // Datos por defecto si hay error
+    $datosUsuario = [
+        'nombre' => $nombre,
+        'correo' => 'usuario@ejemplo.com',
+        'password' => '********'
+    ];
+}
+
+// Procesar formulario si se envió
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $mensaje = '';
+    $tipo_mensaje = '';
+    
+    if (isset($_POST['actualizar_perfil'])) {
+        // Actualizar perfil
+        $nuevo_nombre = trim($_POST['nombre']);
+        $nuevo_correo = trim($_POST['correo']);
+        
+        if (actualizarPerfil($conn, $id_usuario, $nuevo_nombre, $nuevo_correo)) {
+            $_SESSION['nombre'] = $nuevo_nombre;
+            $nombre = $nuevo_nombre;
+            $datosUsuario['nombre'] = $nuevo_nombre;
+            $datosUsuario['correo'] = $nuevo_correo;
+            $mensaje = 'Perfil actualizado correctamente';
+            $tipo_mensaje = 'success';
+        } else {
+            $mensaje = 'Error al actualizar el perfil';
+            $tipo_mensaje = 'error';
+        }
+    }
+    
+    // Procesar cambio de contraseña
+    if (isset($_POST['cambiar_password'])) {
+        $id_usuario = $_SESSION['id_usuario'];
+        $password_actual = $_POST['password_actual'];
+        $nueva_password = $_POST['nueva_password'];
+        $confirmar_password = $_POST['confirmar_password'];
+        
+        // Validaciones
+        if (empty($password_actual)) {
+            $mensaje = "Debes ingresar tu contraseña actual";
+            $tipo_mensaje = 'error';
+        } elseif ($nueva_password !== $confirmar_password) {
+            $mensaje = "Las nuevas contraseñas no coinciden";
+            $tipo_mensaje = 'error';
+        } else {
+            $resultado = cambiarPassword($conn, $id_usuario, $password_actual, $nueva_password);
+            
+            if ($resultado['success']) {
+                $mensaje = "Contraseña cambiada exitosamente";
+                $tipo_mensaje = 'success';
+                // Opcional: cerrar sesión para que el usuario ingrese con la nueva contraseña
+                // session_destroy();
+                // header("Location: login.php?mensaje=contraseña_actualizada");
+                // exit();
+            } else {
+                $mensaje = $resultado['message'];
+                $tipo_mensaje = 'error';
+            }
+        }
+    }
+}
+
+// Procesar subida de foto si existe
+if (isset($_FILES['foto_perfil']) && $_FILES['foto_perfil']['error'] === 0) {
+     $resultado = subirFotoPerfil($conn, $id_usuario, $_FILES['foto_perfil']);
+    if ($resultado['success']) {
+        $mensaje = $resultado['message'];
+        $tipo_mensaje = 'success';
+        $rutaFotoPerfil = $resultado['ruta'];
+    } else {
+        $mensaje = $resultado['message'];
+        $tipo_mensaje = 'error';
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -88,6 +165,17 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
 .profile-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover;border:4px solid var(--primary)}
 .avatar-edit{position:absolute;bottom:0;right:0;width:36px;height:36px;background:var(--primary);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;cursor:pointer;transition:all 0.3s ease;border:2px solid white}
 .avatar-edit:hover{background:var(--primary-light);transform:scale(1.1)}
+.avatar-input{display:none}
+
+/* MENSAJES */
+.alert-message{position:fixed;top:20px;right:20px;z-index:1050;min-width:300px;max-width:500px;padding:1rem 1.5rem;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:flex;align-items:center;gap:1rem;transform:translateX(400px);transition:transform 0.3s ease}
+.alert-message.show{transform:translateX(0)}
+.alert-message.success{background:var(--success);color:white}
+.alert-message.error{background:var(--danger);color:white}
+.alert-message.warning{background:var(--warning);color:white}
+.alert-icon{font-size:1.25rem}
+.alert-content{flex:1}
+.alert-close{background:none;border:none;color:inherit;cursor:pointer;font-size:1.1rem;padding:0}
 
 /* FORMULARIOS */
 .form-grid{display:grid;gap:1.5rem;margin-bottom:2rem}
@@ -105,6 +193,11 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
 .checkbox-group label{color:var(--gray-600);font-size:0.875rem;cursor:pointer}
 .error-message{color:var(--danger);font-size:0.875rem;margin-top:0.5rem;display:none}
 .error-message.show{display:block}
+.password-strength{margin-top:0.5rem;height:4px;border-radius:2px;background:var(--gray-200);overflow:hidden}
+.password-strength-bar{height:100%;transition:all 0.3s ease;width:0%}
+.password-strength.weak .password-strength-bar{background:var(--danger);width:33%}
+.password-strength.medium .password-strength-bar{background:var(--warning);width:66%}
+.password-strength.strong .password-strength-bar{background:var(--success);width:100%}
 
 /* BOTONES */
 .form-buttons{display:flex;gap:1rem;justify-content:flex-end;flex-wrap:wrap}
@@ -114,6 +207,9 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
 .btn-save:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(16,185,129,0.3)}
 .btn-save.show{display:flex}
 .btn-edit.hide{display:none}
+.btn-cancel{background:var(--gray-400);border:none;padding:0.75rem 2rem;border-radius:6px;color:white;font-weight:600;cursor:pointer;transition:all 0.3s ease;display:none;align-items:center;gap:0.5rem}
+.btn-cancel:hover{background:var(--gray-500)}
+.btn-cancel.show{display:flex}
 
 /* MENÚ MÓVIL */
 .mobile-menu-btn{display:none;position:fixed;top:1rem;left:1rem;z-index:1001;background:white;border:none;width:50px;height:50px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.15);cursor:pointer;align-items:center;justify-content:center;font-size:1.25rem;color:var(--primary);transition:all 0.3s ease}
@@ -138,7 +234,8 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
     .profile-header{padding-bottom:1.5rem;margin-bottom:1.5rem}
     .profile-avatar{width:100px;height:100px}
     .form-buttons{flex-direction:column}
-    .btn-edit,.btn-save{width:100%;justify-content:center}
+    .btn-edit,.btn-save,.btn-cancel{width:100%;justify-content:center}
+    .alert-message{min-width:calc(100% - 40px);max-width:calc(100% - 40px);right:20px;left:20px}
 }
 @media (min-width:768px){.form-grid{grid-template-columns:1fr 1fr;gap:2rem}.password-section .form-grid{grid-template-columns:1fr}}
 @media (max-width:480px){
@@ -152,7 +249,7 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
     .avatar-edit{width:30px;height:30px;font-size:0.875rem}
     .form-control{padding:0.625rem 0.875rem;font-size:0.875rem}
     .password-section{padding:1rem}
-    .btn-edit,.btn-save{padding:0.625rem 1.25rem;font-size:0.875rem}
+    .btn-edit,.btn-save,.btn-cancel{padding:0.625rem 1.25rem;font-size:0.875rem}
     .mobile-menu-btn{width:45px;height:45px;font-size:1.1rem;top:0.75rem;left:0.75rem}
     .sidebar{width:260px}
 }
@@ -231,8 +328,9 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                     <span>Calculadora</span>
                 </a>
                 <a href="asistente.php" class="nav-link" onclick="closeSidebarOnMobile()">
-                <i class="fas fa-robot"></i>
-                <span>Asistente IA</span>
+                    <i class="fas fa-robot"></i>
+                    <span>Asistente IA</span>
+                </a>
             </div>
 
             <div class="nav-section">
@@ -242,9 +340,9 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                     <span>Configuración</span>
                 </a>
                 <a href="modelo/logout.php" class="nav-link">
-                <i class="fas fa-sign-out-alt"></i>
-                Cerrar Sesión
-            </a>
+                    <i class="fas fa-sign-out-alt"></i>
+                    Cerrar Sesión
+                </a>
             </div>
         </div>
     </nav>
@@ -270,14 +368,19 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
             <div class="profile-header">
                 <h2 class="profile-title">Editar Perfil</h2>
                 <div class="profile-avatar">
-                    <img src="<?php echo htmlspecialchars($rutaFotoPerfil); ?>" alt="Foto de perfil" loading="lazy">
-                    <div class="avatar-edit" title="Cambiar foto de perfil">
+                    <img src="<?php echo htmlspecialchars($rutaFotoPerfil); ?>" alt="Foto de perfil" id="avatarPreview" loading="lazy">
+                    <form id="avatarForm" method="POST" enctype="multipart/form-data" style="display: none;">
+                        <input type="file" name="foto_perfil" id="foto_perfil" class="avatar-input" accept="image/*">
+                    </form>
+                    <div class="avatar-edit" onclick="document.getElementById('foto_perfil').click()" title="Cambiar foto de perfil">
                         <i class="fas fa-camera"></i>
                     </div>
                 </div>
             </div>
 
             <form class="configuration-form" method="POST" id="profileForm">
+                <input type="hidden" name="actualizar_perfil" value="1">
+                
                 <div class="form-grid">
                     <div class="form-group">
                         <label class="form-label" for="nombre">
@@ -305,36 +408,57 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                         <i class="fas fa-lock"></i> Cambiar Contraseña
                     </h3>
                     
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label class="form-label" for="password">
-                                Nueva contraseña
-                            </label>
-                            <input type="password" class="form-control" name="password" id="password" 
-                                   value="<?php echo htmlspecialchars($datosUsuario['password']); ?>" 
-                                   required readonly>
+                    <form method="POST" id="passwordForm">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <i class="fas fa-key"></i>
+                                    Contraseña Actual
+                                </label>
+                                <input type="password" class="form-control" name="password_actual" id="password_actual" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <i class="fas fa-lock"></i>
+                                    Nueva Contraseña
+                                </label>
+                                <input type="password" class="form-control" name="nueva_password" id="nueva_password" required minlength="6">
+                                <div class="password-strength" id="passwordStrength">
+                                    <div class="password-strength-bar"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <i class="fas fa-lock"></i>
+                                    Confirmar Nueva Contraseña
+                                </label>
+                                <input type="password" class="form-control" name="confirmar_password" id="confirmar_password" required minlength="6">
+                            </div>
                         </div>
 
-                        <div class="form-group">
-                            <label class="form-label" for="confirm_password">
-                                Confirmar contraseña
-                            </label>
-                            <input type="password" class="form-control" name="confirm_password" id="confirm_password" 
-                                   required readonly>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="showPassword">
+                            <label for="showPassword">Mostrar contraseñas</label>
                         </div>
-                    </div>
 
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="showPassword">
-                        <label for="showPassword">Mostrar contraseñas</label>
-                    </div>
-
-                    <div class="error-message" id="error-message"></div>
+                        <div class="error-message" id="error-message"></div>
+                        
+                        <div class="form-buttons">
+                            <button type="submit" class="btn-save" name="cambiar_password" style="display: flex;">
+                                <i class="fas fa-key"></i> Cambiar Contraseña
+                            </button>
+                        </div>
+                    </form>
                 </div>
 
                 <div class="form-buttons">
                     <button type="button" class="btn-edit" id="editButton">
                         <i class="fas fa-edit"></i> Editar Perfil
+                    </button>
+                    <button type="button" class="btn-cancel" id="cancelButton">
+                        <i class="fas fa-times"></i> Cancelar
                     </button>
                     <button type="submit" class="btn-save" id="submitButton">
                         <i class="fas fa-save"></i> Guardar Cambios
@@ -343,6 +467,19 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
             </form>
         </section>
     </main>
+
+    <!-- Área para mensajes -->
+    <?php if (isset($mensaje)): ?>
+    <div class="alert-message <?php echo $tipo_mensaje; ?> show" id="alertMessage">
+        <div class="alert-icon">
+            <i class="fas fa-<?php echo $tipo_mensaje === 'success' ? 'check' : 'exclamation-triangle'; ?>"></i>
+        </div>
+        <div class="alert-content"><?php echo htmlspecialchars($mensaje); ?></div>
+        <button class="alert-close" onclick="closeAlert()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <?php endif; ?>
 
     <!-- Scripts - Cargar al final para mejor rendimiento -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
@@ -357,116 +494,257 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
         function initializeApp() {
             // Elementos del DOM
             const editButton = document.getElementById('editButton');
+            const cancelButton = document.getElementById('cancelButton');
             const submitButton = document.getElementById('submitButton');
             const showPasswordCheckbox = document.getElementById('showPassword');
             const errorMessage = document.getElementById('error-message');
             const formControls = document.querySelectorAll('.form-control');
-            const passwordInput = document.getElementById('password');
-            const confirmPasswordInput = document.getElementById('confirm_password');
+            const passwordActualInput = document.getElementById('password_actual');
+            const nuevaPasswordInput = document.getElementById('nueva_password');
+            const confirmPasswordInput = document.getElementById('confirmar_password');
+            const passwordStrength = document.getElementById('passwordStrength');
+            const avatarInput = document.getElementById('foto_perfil');
+            const avatarPreview = document.getElementById('avatarPreview');
 
             // Modo edición
             let editMode = false;
 
             // Habilitar/deshabilitar edición
             editButton.addEventListener('click', function() {
-                editMode = !editMode;
-                
-                if (editMode) {
-                    // Entrar en modo edición
-                    formControls.forEach(control => {
-                        control.readOnly = false;
-                        control.style.background = 'white';
-                    });
-                    
-                    editButton.classList.add('hide');
-                    submitButton.classList.add('show');
-                    errorMessage.textContent = '';
-                    errorMessage.classList.remove('show');
-                    
-                    // Enfocar el primer campo
-                    document.getElementById('nombre').focus();
-                } else {
-                    // Salir del modo edición
-                    formControls.forEach(control => {
-                        control.readOnly = true;
-                        control.style.background = 'var(--gray-50)';
-                    });
-                    
-                    editButton.classList.remove('hide');
-                    submitButton.classList.remove('show');
-                }
+                enableEditMode();
+            });
+
+            cancelButton.addEventListener('click', function() {
+                disableEditMode();
+                resetForm();
             });
 
             // Mostrar/ocultar contraseñas
             showPasswordCheckbox.addEventListener('change', function() {
                 const type = this.checked ? 'text' : 'password';
-                passwordInput.type = type;
+                passwordActualInput.type = type;
+                nuevaPasswordInput.type = type;
                 confirmPasswordInput.type = type;
             });
 
-            // Validación del formulario
+            // Validación de fortaleza de contraseña
+            nuevaPasswordInput.addEventListener('input', function() {
+                checkPasswordStrength(this.value);
+                validatePasswords();
+            });
+
+            confirmPasswordInput.addEventListener('input', validatePasswords);
+
+            // Subida de foto de perfil
+            avatarInput.addEventListener('change', function(e) {
+                if (this.files && this.files[0]) {
+                    const file = this.files[0];
+                    
+                    // Validar tipo de archivo
+                    if (!file.type.match('image.*')) {
+                        showAlert('Solo se permiten archivos de imagen', 'error');
+                        return;
+                    }
+                    
+                    // Validar tamaño (2MB)
+                    if (file.size > 2 * 1024 * 1024) {
+                        showAlert('La imagen no debe superar los 2MB', 'error');
+                        return;
+                    }
+                    
+                    // Mostrar preview
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        avatarPreview.src = e.target.result;
+                    }
+                    reader.readAsDataURL(file);
+                    
+                    // Enviar formulario automáticamente
+                    document.getElementById('avatarForm').submit();
+                }
+            });
+
+            // Validación del formulario de perfil
             document.getElementById('profileForm').addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                // Validar contraseñas
-                if (passwordInput.value !== confirmPasswordInput.value) {
-                    errorMessage.textContent = 'Las contraseñas no coinciden';
-                    errorMessage.classList.add('show');
-                    confirmPasswordInput.focus();
+                if (!editMode) {
+                    e.preventDefault();
                     return;
                 }
                 
-                // Validar longitud de contraseña
-                if (passwordInput.value.length > 0 && passwordInput.value.length < 6) {
-                    errorMessage.textContent = 'La contraseña debe tener al menos 6 caracteres';
-                    errorMessage.classList.add('show');
-                    passwordInput.focus();
+                // Mostrar loading
+                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+                submitButton.disabled = true;
+            });
+
+            // Validación del formulario de contraseña
+            document.getElementById('passwordForm').addEventListener('submit', function(e) {
+                if (!validatePasswordForm()) {
+                    e.preventDefault();
                     return;
                 }
+            });
+
+            function enableEditMode() {
+                editMode = true;
+                formControls.forEach(control => {
+                    if (control.id !== 'password_actual' && control.id !== 'nueva_password' && control.id !== 'confirmar_password') {
+                        control.readOnly = false;
+                        control.style.background = 'white';
+                    }
+                });
                 
+                editButton.classList.add('hide');
+                cancelButton.classList.add('show');
+                submitButton.classList.add('show');
+                errorMessage.textContent = '';
                 errorMessage.classList.remove('show');
                 
-                // Simular envío del formulario (aquí iría tu lógica real)
-                alert('Cambios guardados correctamente');
-                
-                // Salir del modo edición
+                // Enfocar el primer campo
+                document.getElementById('nombre').focus();
+            }
+
+            function disableEditMode() {
                 editMode = false;
                 formControls.forEach(control => {
-                    control.readOnly = true;
-                    control.style.background = 'var(--gray-50)';
+                    if (control.id !== 'password_actual' && control.id !== 'nueva_password' && control.id !== 'confirmar_password') {
+                        control.readOnly = true;
+                        control.style.background = 'var(--gray-50)';
+                    }
                 });
                 
                 editButton.classList.remove('hide');
+                cancelButton.classList.remove('show');
                 submitButton.classList.remove('show');
                 
-                // Ocultar contraseñas después de guardar
+                // Ocultar contraseñas
                 showPasswordCheckbox.checked = false;
-                passwordInput.type = 'password';
+                passwordActualInput.type = 'password';
+                nuevaPasswordInput.type = 'password';
                 confirmPasswordInput.type = 'password';
-            });
+            }
 
-            // Validación en tiempo real
-            confirmPasswordInput.addEventListener('input', function() {
-                if (passwordInput.value !== confirmPasswordInput.value) {
+            function resetForm() {
+                // Resetear campos de perfil (podrías cargar los valores originales aquí)
+                nuevaPasswordInput.value = '';
+                confirmPasswordInput.value = '';
+                passwordActualInput.value = '';
+                passwordStrength.className = 'password-strength';
+                errorMessage.classList.remove('show');
+            }
+
+            function checkPasswordStrength(password) {
+                let strength = 0;
+                
+                if (password.length >= 6) strength++;
+                if (password.length >= 8) strength++;
+                if (/[A-Z]/.test(password)) strength++;
+                if (/[0-9]/.test(password)) strength++;
+                if (/[^A-Za-z0-9]/.test(password)) strength++;
+                
+                passwordStrength.className = 'password-strength';
+                if (password.length > 0) {
+                    if (strength < 2) {
+                        passwordStrength.classList.add('weak');
+                    } else if (strength < 4) {
+                        passwordStrength.classList.add('medium');
+                    } else {
+                        passwordStrength.classList.add('strong');
+                    }
+                }
+            }
+
+            function validatePasswords() {
+                if (nuevaPasswordInput.value !== confirmPasswordInput.value) {
                     errorMessage.textContent = 'Las contraseñas no coinciden';
                     errorMessage.classList.add('show');
+                    return false;
                 } else {
                     errorMessage.classList.remove('show');
+                    return true;
                 }
-            });
+            }
 
-            // Prevenir que se envíe el formulario con Enter en modo no edición
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && !editMode) {
-                    e.preventDefault();
+            function validatePasswordForm() {
+                // Validar contraseña actual
+                if (!passwordActualInput.value) {
+                    errorMessage.textContent = 'Debes ingresar tu contraseña actual';
+                    errorMessage.classList.add('show');
+                    passwordActualInput.focus();
+                    return false;
                 }
-            });
+                
+                // Validar que las contraseñas coincidan
+                if (nuevaPasswordInput.value !== confirmPasswordInput.value) {
+                    errorMessage.textContent = 'Las nuevas contraseñas no coinciden';
+                    errorMessage.classList.add('show');
+                    confirmPasswordInput.focus();
+                    return false;
+                }
+                
+                // Validar longitud de contraseña
+                if (nuevaPasswordInput.value.length < 6) {
+                    errorMessage.textContent = 'La contraseña debe tener al menos 6 caracteres';
+                    errorMessage.classList.add('show');
+                    nuevaPasswordInput.focus();
+                    return false;
+                }
+                
+                errorMessage.classList.remove('show');
+                return true;
+            }
 
-            // Manejar clic en el botón de editar avatar
-            document.querySelector('.avatar-edit').addEventListener('click', function() {
-                alert('Funcionalidad para cambiar foto de perfil - En desarrollo');
-                // Aquí iría la lógica para subir una nueva foto de perfil
-            });
+            function showAlert(message, type) {
+                // Crear elemento de alerta si no existe
+                let alertElement = document.getElementById('alertMessage');
+                if (!alertElement) {
+                    alertElement = document.createElement('div');
+                    alertElement.id = 'alertMessage';
+                    alertElement.className = `alert-message ${type}`;
+                    alertElement.innerHTML = `
+                        <div class="alert-icon">
+                            <i class="fas fa-${type === 'success' ? 'check' : 'exclamation-triangle'}"></i>
+                        </div>
+                        <div class="alert-content">${message}</div>
+                        <button class="alert-close" onclick="closeAlert()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+                    document.body.appendChild(alertElement);
+                } else {
+                    alertElement.className = `alert-message ${type}`;
+                    alertElement.querySelector('.alert-content').textContent = message;
+                    alertElement.querySelector('.alert-icon i').className = `fas fa-${type === 'success' ? 'check' : 'exclamation-triangle'}`;
+                }
+                
+                // Mostrar alerta
+                setTimeout(() => {
+                    alertElement.classList.add('show');
+                }, 100);
+                
+                // Auto-ocultar después de 5 segundos
+                setTimeout(() => {
+                    closeAlert();
+                }, 5000);
+            }
+
+            window.closeAlert = function() {
+                const alertElement = document.getElementById('alertMessage');
+                if (alertElement) {
+                    alertElement.classList.remove('show');
+                    setTimeout(() => {
+                        if (alertElement.parentNode) {
+                            alertElement.parentNode.removeChild(alertElement);
+                        }
+                    }, 300);
+                }
+            };
+
+            // Cerrar alerta automáticamente si existe
+            <?php if (isset($mensaje)): ?>
+            setTimeout(() => {
+                closeAlert();
+            }, 5000);
+            <?php endif; ?>
         }
 
         function initializeMobileMenu() {
@@ -514,7 +792,9 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
             }
         }
     </script>
-        <style>        .logout-btn {
+    
+    <style>
+        .logout-btn {
             background: var(--danger);
             color: white;
             border: none;
@@ -535,6 +815,6 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
             background: #dc2626;
             color: white;
         }
-</style>
+    </style>
 </body>
 </html>

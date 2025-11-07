@@ -1,202 +1,231 @@
 <?php
 class SistemaLogros {
-    private $db;
+    private $connection;
     
-    public function __construct($conexion) {
-        $this->db = $conexion;
+    public function __construct($connection) {
+        $this->connection = $connection;
     }
     
-    public function verificarLogros($usuario_id) {
-        // Obtener todos los tipos de logros de una vez
-        $tipos_logros = $this->getTiposLogros();
-        
-        // Obtener datos del usuario una sola vez para múltiples verificaciones
-        $datos_usuario = $this->getDatosUsuarioParaLogros($usuario_id);
-        
-        foreach($tipos_logros as $tipo_logro) {
-            if($this->cumpleLogro($usuario_id, $tipo_logro['codigo'], $datos_usuario)) {
-                $this->otorgarLogro($usuario_id, $tipo_logro);
-            }
-        }
-    }
-    
-    private function getDatosUsuarioParaLogros($usuario_id) {
-        $datos = [];
-        
-        // Obtener conteos básicos
-        $sql_conteos = "SELECT 
-            (SELECT COUNT(*) FROM ingresos WHERE id_usuario = :usuario_id) as total_ingresos,
-            (SELECT COUNT(*) FROM gastos WHERE id_usuario = :usuario_id) as total_gastos,
-            (SELECT COUNT(*) FROM metas WHERE id_usuario = :usuario_id AND estado = 'completada') as metas_completadas";
-        
-        $stmt = $this->db->prepare($sql_conteos);
-        $stmt->execute([':usuario_id' => $usuario_id]);
-        $conteos = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        $datos['total_ingresos'] = $conteos['total_ingresos'] ?? 0;
-        $datos['total_gastos'] = $conteos['total_gastos'] ?? 0;
-        $datos['metas_completadas'] = $conteos['metas_completadas'] ?? 0;
-        
-        // Obtener balances
-        $sql_balances = "SELECT 
-            (SELECT COALESCE(SUM(monto), 0) FROM ingresos WHERE id_usuario = :usuario_id) as total_ingresos_monto,
-            (SELECT COALESCE(SUM(monto), 0) FROM gastos WHERE id_usuario = :usuario_id) as total_gastos_monto";
-        
-        $stmt2 = $this->db->prepare($sql_balances);
-        $stmt2->execute([':usuario_id' => $usuario_id]);
-        $balances = $stmt2->fetch(PDO::FETCH_ASSOC);
-        
-        $datos['total_ingresos_monto'] = $balances['total_ingresos_monto'] ?? 0;
-        $datos['total_gastos_monto'] = $balances['total_gastos_monto'] ?? 0;
-        $datos['ahorro_total'] = $datos['total_ingresos_monto'] - $datos['total_gastos_monto'];
-        
-        return $datos;
-    }
-    
-    private function getTiposLogros() {
-        $sql = "SELECT * FROM tipos_logros";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute();
-        
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-    
-    private function cumpleLogro($usuario_id, $codigo_logro, $datos_usuario = null) {
-        // Si no se pasaron datos, obtenerlos
-        if ($datos_usuario === null) {
-            $datos_usuario = $this->getDatosUsuarioParaLogros($usuario_id);
-        }
-        
-        switch($codigo_logro) {
-            case 'primer_ingreso':
-                return $datos_usuario['total_ingresos'] == 1;
-                
-            case 'primer_gasto':
-                return $datos_usuario['total_gastos'] == 1;
-                
-            case 'ahorro_100':
-                return $datos_usuario['ahorro_total'] >= 100;
-                
-            case 'ahorro_500':
-                return $datos_usuario['ahorro_total'] >= 500;
-                
-            case 'ahorro_1000':
-                return $datos_usuario['ahorro_total'] >= 1000;
-                
-            case 'balance_positivo':
-                return $this->tieneBalancePositivo($usuario_id);
-                
-            case 'racha_7dias':
-                return $this->tieneRacha7Dias($usuario_id);
-                
-            case 'meta_completada':
-                return $datos_usuario['metas_completadas'] > 0;
-                
-            case 'presupuesto_cumplido':
-                return $this->tienePresupuestoCumplido($usuario_id);
-                
-            default:
-                return false;
-        }
-    }
-    
-    private function tieneBalancePositivo($usuario_id) {
-        $mes_actual = date('Y-m');
-        
-        $sql = "SELECT 
-            (SELECT COALESCE(SUM(monto), 0) FROM ingresos WHERE id_usuario = :usuario_id AND TO_CHAR(fecha, 'YYYY-MM') = :mes_actual) as ingresos_mes,
-            (SELECT COALESCE(SUM(monto), 0) FROM gastos WHERE id_usuario = :usuario_id AND TO_CHAR(fecha, 'YYYY-MM') = :mes_actual) as gastos_mes";
-        
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([
-            ':usuario_id' => $usuario_id,
-            ':mes_actual' => $mes_actual
-        ]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        $ingresos = $row['ingresos_mes'] ?? 0;
-        $gastos = $row['gastos_mes'] ?? 0;
-        
-        return ($ingresos - $gastos) > 0;
-    }
-    
-    private function tieneRacha7Dias($usuario_id) {
-        // Versión optimizada de la consulta
-        $sql = "SELECT COUNT(DISTINCT DATE(fecha)) as dias_consecutivos 
-                FROM (
-                    SELECT fecha FROM ingresos WHERE id_usuario = :usuario_id AND fecha >= CURRENT_DATE - INTERVAL '7 days'
-                    UNION 
-                    SELECT fecha FROM gastos WHERE id_usuario = :usuario_id AND fecha >= CURRENT_DATE - INTERVAL '7 days'
-                ) AS movimientos";
-        
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([':usuario_id' => $usuario_id]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        return ($row['dias_consecutivos'] ?? 0) >= 7;
-    }
-    
-    private function tienePresupuestoCumplido($usuario_id) {
-        $mes_actual = date('Y-m');
-        
-        $sql = "SELECT COALESCE(SUM(monto), 0) as total_gastos 
-                FROM gastos 
-                WHERE id_usuario = :usuario_id AND TO_CHAR(fecha, 'YYYY-MM') = :mes_actual";
-        
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([
-            ':usuario_id' => $usuario_id,
-            ':mes_actual' => $mes_actual
-        ]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        $gastos = $row['total_gastos'] ?? 0;
-        $presupuesto_mensual = 1000; // Ajusta según tu lógica
-        
-        return $gastos <= $presupuesto_mensual;
-    }
-    
-    private function otorgarLogro($usuario_id, $tipo_logro) {
-        // Verificar si ya tiene el logro
-        $sql_check = "SELECT id_logro FROM logros WHERE id_usuario = :usuario_id AND tipo_logro = :tipo_logro";
-        $stmt_check = $this->db->prepare($sql_check);
-        $stmt_check->execute([
-            ':usuario_id' => $usuario_id,
-            ':tipo_logro' => $tipo_logro['codigo']
-        ]);
-        
-        if ($stmt_check->rowCount() == 0) {
-            // Otorgar el logro
-            $sql_insert = "INSERT INTO logros (id_usuario, tipo_logro, mensaje, icono) 
-                          VALUES (:usuario_id, :tipo_logro, :mensaje, :icono)";
-            $stmt_insert = $this->db->prepare($sql_insert);
-            $stmt_insert->execute([
-                ':usuario_id' => $usuario_id,
-                ':tipo_logro' => $tipo_logro['codigo'],
-                ':mensaje' => $tipo_logro['descripcion'],
-                ':icono' => $tipo_logro['icono']
-            ]);
-            
-            return true;
-        }
-        
-        return false;
-    }
-    
+    /**
+     * Obtener los logros de un usuario
+     */
     public function getLogrosUsuario($usuario_id, $limite = 5) {
-        $sql = "SELECT * FROM logros WHERE id_usuario = :usuario_id ORDER BY fecha_obtenido DESC LIMIT :limite";
-        $stmt = $this->db->prepare($sql);
-        $stmt->bindValue(':usuario_id', $usuario_id, PDO::PARAM_INT);
-        $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
-        $stmt->execute();
-        
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        try {
+            $sql = "SELECT * FROM logros WHERE id_usuario = :usuario_id ORDER BY fecha_obtenido DESC LIMIT :limite";
+            $stmt = $this->connection->prepare($sql);
+            $stmt->bindValue(':usuario_id', $usuario_id, PDO::PARAM_INT);
+            $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error en getLogrosUsuario: " . $e->getMessage());
+            return [];
+        }
     }
     
+    /**
+     * Verificar y asignar logros automáticamente
+     */
+    public function verificarLogros($usuario_id) {
+        try {
+            $this->verificarPrimerGasto($usuario_id);
+            $this->verificarPrimerIngreso($usuario_id);
+            $this->verificarMetaCompletada($usuario_id);
+            $this->verificarConsistenciaSemanal($usuario_id);
+            return true;
+        } catch (Exception $e) {
+            error_log("Error en verificarLogros: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Marcar logros como vistos
+     */
     public function marcarLogrosComoVistos($usuario_id) {
-        $sql = "UPDATE logros SET visto = TRUE WHERE id_usuario = :usuario_id AND visto = FALSE";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([':usuario_id' => $usuario_id]);
+        try {
+            $sql = "UPDATE logros SET visto = true WHERE id_usuario = :usuario_id AND visto = false";
+            $stmt = $this->connection->prepare($sql);
+            $stmt->execute([':usuario_id' => $usuario_id]);
+            return true;
+        } catch (PDOException $e) {
+            error_log("Error en marcarLogrosComoVistos: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Verificar logro: Primer Gasto
+     */
+    private function verificarPrimerGasto($usuario_id) {
+        try {
+            // Verificar si ya tiene este logro
+            $sql_check = "SELECT COUNT(*) as count FROM logros WHERE id_usuario = :usuario_id AND tipo_logro = 'primer_gasto'";
+            $stmt_check = $this->connection->prepare($sql_check);
+            $stmt_check->execute([':usuario_id' => $usuario_id]);
+            $result = $stmt_check->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result['count'] == 0) {
+                // Verificar si tiene gastos
+                $sql_gastos = "SELECT COUNT(*) as count FROM gastos WHERE usuario_id = :usuario_id";
+                $stmt_gastos = $this->connection->prepare($sql_gastos);
+                $stmt_gastos->execute([':usuario_id' => $usuario_id]);
+                $gastos = $stmt_gastos->fetch(PDO::FETCH_ASSOC);
+                
+                if ($gastos['count'] > 0) {
+                    // Asignar logro
+                    $this->asignarLogro($usuario_id, 'primer_gasto', '¡Felicidades! Realizaste tu primer gasto', '🛒');
+                }
+            }
+        } catch (PDOException $e) {
+            error_log("Error en verificarPrimerGasto: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Verificar logro: Primer Ingreso
+     */
+    private function verificarPrimerIngreso($usuario_id) {
+        try {
+            // Verificar si ya tiene este logro
+            $sql_check = "SELECT COUNT(*) as count FROM logros WHERE id_usuario = :usuario_id AND tipo_logro = 'primer_ingreso'";
+            $stmt_check = $this->connection->prepare($sql_check);
+            $stmt_check->execute([':usuario_id' => $usuario_id]);
+            $result = $stmt_check->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result['count'] == 0) {
+                // Verificar si tiene ingresos
+                $sql_ingresos = "SELECT COUNT(*) as count FROM ingresos WHERE usuario_id = :usuario_id";
+                $stmt_ingresos = $this->connection->prepare($sql_ingresos);
+                $stmt_ingresos->execute([':usuario_id' => $usuario_id]);
+                $ingresos = $stmt_ingresos->fetch(PDO::FETCH_ASSOC);
+                
+                if ($ingresos['count'] > 0) {
+                    // Asignar logro
+                    $this->asignarLogro($usuario_id, 'primer_ingreso', '¡Excelente! Registraste tu primer ingreso', '💰');
+                }
+            }
+        } catch (PDOException $e) {
+            error_log("Error en verificarPrimerIngreso: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Verificar logro: Meta Completada
+     */
+    private function verificarMetaCompletada($usuario_id) {
+        try {
+            // Buscar metas recién completadas
+            $sql_metas = "SELECT id_meta, nombre_meta FROM metas WHERE id_usuario = :usuario_id AND estado = 'completada' AND fecha_completado >= CURRENT_DATE - INTERVAL '1 day'";
+            $stmt_metas = $this->connection->prepare($sql_metas);
+            $stmt_metas->execute([':usuario_id' => $usuario_id]);
+            $metas_completadas = $stmt_metas->fetchAll(PDO::FETCH_ASSOC);
+            
+            foreach ($metas_completadas as $meta) {
+                // Verificar si ya tiene logro para esta meta
+                $sql_check = "SELECT COUNT(*) as count FROM logros WHERE id_usuario = :usuario_id AND tipo_logro = 'meta_completada' AND mensaje LIKE :mensaje";
+                $stmt_check = $this->connection->prepare($sql_check);
+                $stmt_check->execute([
+                    ':usuario_id' => $usuario_id,
+                    ':mensaje' => '%' . $meta['nombre_meta'] . '%'
+                ]);
+                $result = $stmt_check->fetch(PDO::FETCH_ASSOC);
+                
+                if ($result['count'] == 0) {
+                    $this->asignarLogro($usuario_id, 'meta_completada', "¡Felicidades! Completaste la meta: " . $meta['nombre_meta'], '🎯');
+                }
+            }
+        } catch (PDOException $e) {
+            error_log("Error en verificarMetaCompletada: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Verificar logro: Consistencia Semanal
+     */
+    private function verificarConsistenciaSemanal($usuario_id) {
+        try {
+            // Verificar registros en los últimos 7 días
+            $sql = "SELECT COUNT(DISTINCT DATE(fecha)) as dias_con_registros 
+                    FROM (
+                        SELECT fecha FROM gastos WHERE usuario_id = :usuario_id AND fecha >= CURRENT_DATE - INTERVAL '7 days'
+                        UNION ALL
+                        SELECT fecha FROM ingresos WHERE usuario_id = :usuario_id AND fecha >= CURRENT_DATE - INTERVAL '7 days'
+                    ) AS registros";
+            $stmt = $this->connection->prepare($sql);
+            $stmt->execute([':usuario_id' => $usuario_id]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result['dias_con_registros'] >= 7) {
+                // Verificar si ya tiene este logro
+                $sql_check = "SELECT COUNT(*) as count FROM logros WHERE id_usuario = :usuario_id AND tipo_logro = 'consistencia_semanal'";
+                $stmt_check = $this->connection->prepare($sql_check);
+                $stmt_check->execute([':usuario_id' => $usuario_id]);
+                $logro_existente = $stmt_check->fetch(PDO::FETCH_ASSOC);
+                
+                if ($logro_existente['count'] == 0) {
+                    $this->asignarLogro($usuario_id, 'consistencia_semanal', '¡Increíble! Mantuviste consistencia por 7 días seguidos', '📊');
+                }
+            }
+        } catch (PDOException $e) {
+            error_log("Error en verificarConsistenciaSemanal: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Método auxiliar para asignar logros
+     */
+    private function asignarLogro($usuario_id, $tipo_logro, $mensaje, $icono) {
+        try {
+            $sql = "INSERT INTO logros (id_usuario, tipo_logro, mensaje, icono, fecha_obtenido) 
+                    VALUES (:usuario_id, :tipo_logro, :mensaje, :icono, NOW())";
+            $stmt = $this->connection->prepare($sql);
+            $stmt->execute([
+                ':usuario_id' => $usuario_id,
+                ':tipo_logro' => $tipo_logro,
+                ':mensaje' => $mensaje,
+                ':icono' => $icono
+            ]);
+            return true;
+        } catch (PDOException $e) {
+            error_log("Error en asignarLogro: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Obtener estadísticas de logros
+     */
+    public function getEstadisticasLogros($usuario_id) {
+        try {
+            $sql = "SELECT 
+                    COUNT(*) as total_logros,
+                    COUNT(CASE WHEN visto = false THEN 1 END) as logros_nuevos,
+                    MAX(fecha_obtenido) as ultimo_logro
+                    FROM logros 
+                    WHERE id_usuario = :usuario_id";
+            $stmt = $this->connection->prepare($sql);
+            $stmt->execute([':usuario_id' => $usuario_id]);
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error en getEstadisticasLogros: " . $e->getMessage());
+            return ['total_logros' => 0, 'logros_nuevos' => 0, 'ultimo_logro' => null];
+        }
+    }
+    
+    /**
+     * Obtener todos los tipos de logros disponibles
+     */
+    public function getTiposLogros() {
+        try {
+            $sql = "SELECT * FROM tipos_logros ORDER BY id_tipo";
+            $stmt = $this->connection->prepare($sql);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error en getTiposLogros: " . $e->getMessage());
+            return [];
+        }
     }
 }
 ?>

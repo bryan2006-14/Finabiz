@@ -1,16 +1,41 @@
-<?php 
-try { 
-    $host = "dpg-d3cp1eumcj7s73dpm8sg-a.oregon-postgres.render.com"; 
-    $port = "5432"; 
-    $dbname = "db_finanzas_fxs9"; 
-    $user = "db_finanzas_fxs9_user"; 
-    $password = "MzArnjJx2t87VeEF1Cr03C35Qv3M49CU"; 
+<?php
+// modelo/conexion.php
+class Database {
+    private $host = 'dpg-d421923ipnbc73buvavg-a.oregon-postgres.render.com';
+    private $db_name = 'db_finabiz';
+    private $username = 'db_finabiz_user';
+    private $password = 'AkwKCIh1aJYNAqd687v8a6WZWgun5Axm';
+    private $port = '5432';
+    public $conn;
 
-    $dsn = "pgsql:host=$host;port=$port;dbname=$dbname;"; 
-    $connection = new PDO($dsn, $user, $password, [ 
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION 
-    ]); 
-} catch (PDOException $e) { 
-    die("❌ Error de conexión: " . $e->getMessage()); 
-} 
+    public function getConnection() {
+        $this->conn = null;
+        
+        try {
+            $dsn = "pgsql:host=$this->host;port=$this->port;dbname=$this->db_name";
+            
+            $options = [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false,
+            ];
+            
+            $this->conn = new PDO($dsn, $this->username, $this->password, $options);
+            return $this->conn;
+            
+        } catch(PDOException $e) {
+            error_log("❌ Error de conexión PostgreSQL: " . $e->getMessage());
+            return null;
+        }
+    }
+}
+
+// Crear instancia global
+$database = new Database();
+$conn = $database->getConnection();
+
+// Verificar conexión
+if (!$conn) {
+    die("❌ Error: No se pudo conectar a la base de datos PostgreSQL");
+}
 ?>

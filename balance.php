@@ -20,9 +20,9 @@ $idUsuario = $_SESSION['id_usuario'];
 $mesSeleccionado = isset($_GET['mes']) && $_GET['mes'] != '' ? $_GET['mes'] : '';
 $anioSeleccionado = isset($_GET['anio']) && $_GET['anio'] != '' ? $_GET['anio'] : '';
 
-// 🔹 Funciones con PDO y filtros
-function getTotalIngreso($connection, $idUsuario, $mes = '', $anio = '') {
-    $query = "SELECT SUM(monto) as total FROM ingresos WHERE id_usuario = :id_usuario";
+// 🔹 Funciones con PDO y filtros - CORREGIDO: usar $conn en lugar de $connection
+function getTotalIngreso($conn, $idUsuario, $mes = '', $anio = '') {
+    $query = "SELECT SUM(monto) as total FROM ingresos WHERE usuario_id = :id_usuario";
     $params = [':id_usuario' => $idUsuario];
     
     if (!empty($mes) && !empty($anio)) {
@@ -31,14 +31,14 @@ function getTotalIngreso($connection, $idUsuario, $mes = '', $anio = '') {
         $params[':anio'] = $anio;
     }
     
-    $stmt = $connection->prepare($query);
+    $stmt = $conn->prepare($query);
     $stmt->execute($params);
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
     return $result['total'] ?? 0;
 }
 
-function getTotalGasto($connection, $idUsuario, $mes = '', $anio = '') {
-    $query = "SELECT SUM(monto) as total FROM gastos WHERE id_usuario = :id_usuario";
+function getTotalGasto($conn, $idUsuario, $mes = '', $anio = '') {
+    $query = "SELECT SUM(monto) as total FROM gastos WHERE usuario_id = :id_usuario";
     $params = [':id_usuario' => $idUsuario];
     
     if (!empty($mes) && !empty($anio)) {
@@ -47,15 +47,15 @@ function getTotalGasto($connection, $idUsuario, $mes = '', $anio = '') {
         $params[':anio'] = $anio;
     }
     
-    $stmt = $connection->prepare($query);
+    $stmt = $conn->prepare($query);
     $stmt->execute($params);
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
     return $result['total'] ?? 0;
 }
 
-// 🔹 Obtener totales con filtros
-$ingresoTotal = getTotalIngreso($connection, $idUsuario, $mesSeleccionado, $anioSeleccionado);
-$gastoTotal   = getTotalGasto($connection, $idUsuario, $mesSeleccionado, $anioSeleccionado);
+// 🔹 Obtener totales con filtros - CORREGIDO: usar $conn en lugar de $connection
+$ingresoTotal = getTotalIngreso($conn, $idUsuario, $mesSeleccionado, $anioSeleccionado);
+$gastoTotal   = getTotalGasto($conn, $idUsuario, $mesSeleccionado, $anioSeleccionado);
 $balance      = floatval($ingresoTotal) - floatval($gastoTotal);
 
 ?>

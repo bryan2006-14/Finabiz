@@ -1,18 +1,105 @@
 <?php
 session_start();
 if (!isset($_SESSION['id_usuario'])) {
-    header("Location:index.php");
+    header("Location: index.php");
+    exit();
 }
+
+// Incluir conexión primero
+require_once 'modelo/conexion.php';
+
+// Verificar si la conexión se estableció correctamente
+if (!$conn) {
+    die("Error: No se pudo establecer la conexión a la base de datos");
+}
+
 $nombre = $_SESSION['nombre'];
+$id_usuario = $_SESSION['id_usuario'];
 $fotoPerfil = $_SESSION['foto_perfil'];
 $rutaDefault = "recursos/img/default-avatar.png";
 $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
     ? "fotos/" . $fotoPerfil
     : $rutaDefault;
 
-// Obtener el mes y año seleccionado del filtro - CORREGIDO
+// Obtener el mes y año seleccionado del filtro
 $mesSeleccionado = isset($_GET['mes']) && $_GET['mes'] != '' ? $_GET['mes'] : '';
 $anioSeleccionado = isset($_GET['anio']) && $_GET['anio'] != '' ? $_GET['anio'] : '';
+
+// Función para obtener el total de gastos (PostgreSQL)
+function obtenerTotalGastos($conn, $id_usuario, $mesSeleccionado, $anioSeleccionado) {
+    $total_gastos = 0;
+    $sql_total = "SELECT SUM(monto) as total FROM gastos WHERE usuario_id = :usuario_id";
+    
+    if (!empty($mesSeleccionado) && !empty($anioSeleccionado)) {
+        $sql_total .= " AND EXTRACT(MONTH FROM fecha) = :mes AND EXTRACT(YEAR FROM fecha) = :anio";
+    }
+    
+    $stmt_total = $conn->prepare($sql_total);
+    $stmt_total->bindParam(':usuario_id', $id_usuario, PDO::PARAM_INT);
+    
+    if (!empty($mesSeleccionado) && !empty($anioSeleccionado)) {
+        $stmt_total->bindParam(':mes', $mesSeleccionado, PDO::PARAM_INT);
+        $stmt_total->bindParam(':anio', $anioSeleccionado, PDO::PARAM_INT);
+    }
+    
+    $stmt_total->execute();
+    $result_total = $stmt_total->fetch(PDO::FETCH_ASSOC);
+    
+    if ($result_total && isset($result_total['total'])) {
+        $total_gastos = $result_total['total'] ? $result_total['total'] : 0;
+    }
+    
+    return $total_gastos;
+}
+
+// Función para obtener categorías (PostgreSQL)
+function obtenerCategorias($conn) {
+    $categorias = [];
+    $sql_categorias = "SELECT id, categoria FROM categorias ORDER BY categoria";
+    $stmt_categorias = $conn->prepare($sql_categorias);
+    $stmt_categorias->execute();
+    
+    $categorias = $stmt_categorias->fetchAll(PDO::FETCH_ASSOC);
+    return $categorias;
+}
+
+// Función para obtener gastos (PostgreSQL)
+function obtenerGastos($conn, $id_usuario, $mesSeleccionado, $anioSeleccionado) {
+    $gastos = [];
+    $sql = "SELECT 
+        g.monto,
+        g.forma_pago,
+        g.fecha,
+        g.nota,
+        c.categoria as nombre_categoria
+    FROM gastos g 
+    LEFT JOIN categorias c ON g.categoria_id = c.id 
+    WHERE g.usuario_id = :usuario_id";
+    
+    if (!empty($mesSeleccionado) && !empty($anioSeleccionado)) {
+        $sql .= " AND EXTRACT(MONTH FROM g.fecha) = :mes AND EXTRACT(YEAR FROM g.fecha) = :anio";
+    }
+    
+    $sql .= " ORDER BY g.fecha DESC";
+    
+    $stmt = $conn->prepare($sql);
+    $stmt->bindParam(':usuario_id', $id_usuario, PDO::PARAM_INT);
+    
+    if (!empty($mesSeleccionado) && !empty($anioSeleccionado)) {
+        $stmt->bindParam(':mes', $mesSeleccionado, PDO::PARAM_INT);
+        $stmt->bindParam(':anio', $anioSeleccionado, PDO::PARAM_INT);
+    }
+    
+    $stmt->execute();
+    $gastos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    return $gastos;
+}
+
+// Obtener datos
+$total_gastos = obtenerTotalGastos($conn, $id_usuario, $mesSeleccionado, $anioSeleccionado);
+$categorias = obtenerCategorias($conn);
+$gastos = obtenerGastos($conn, $id_usuario, $mesSeleccionado, $anioSeleccionado);
 
 // Después de insertar un ingreso o gasto exitosamente
 require_once 'modelo/logros.php';
@@ -255,8 +342,9 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                     <span>Calculadora</span>
                 </a>
                 <a href="asistente.php" class="nav-link" onclick="closeSidebarOnMobile()">
-                <i class="fas fa-robot"></i>
-                <span>Asistente IA</span>
+                    <i class="fas fa-robot"></i>
+                    <span>Asistente IA</span>
+                </a>
             </div>
 
             <div class="nav-section">
@@ -266,9 +354,9 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                     <span>Configuración</span>
                 </a>
                 <a href="modelo/logout.php" class="nav-link">
-                <i class="fas fa-sign-out-alt"></i>
-                Cerrar Sesión
-            </a>
+                    <i class="fas fa-sign-out-alt"></i>
+                    Cerrar Sesión
+                </a>
             </div>
         </div>
     </nav>
@@ -313,12 +401,7 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                             echo '(Todos los registros)';
                         }
                     ?></div>
-                    <div class="summary-amount">- S/<?php 
-                        // Pasar parámetros de mes y año al archivo total.php
-                        $_GET['mes'] = $mesSeleccionado;
-                        $_GET['anio'] = $anioSeleccionado;
-                        include 'modelo/total.php'; 
-                    ?></div>
+                    <div class="summary-amount">- S/ <?php echo number_format($total_gastos, 2); ?></div>
                 </div>
             </div>
 
@@ -370,11 +453,11 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                     <span class="filter-label">Categoría:</span>
                     <select class="filter-select" id="categoryFilter">
                         <option value="">Todas las categorías</option>
-                        <option value="Comida">Comida</option>
-                        <option value="Transporte">Transporte</option>
-                        <option value="Vivienda">Vivienda</option>
-                        <option value="Entretenimiento">Entretenimiento</option>
-                        <option value="Otros">Otros</option>
+                        <?php foreach ($categorias as $categoria): ?>
+                            <option value="<?php echo htmlspecialchars($categoria['categoria']); ?>">
+                                <?php echo htmlspecialchars($categoria['categoria']); ?>
+                            </option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
             </div>
@@ -392,18 +475,33 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                         </tr>
                     </thead>
                     <tbody>
-                        <?php 
-                        // Pasar parámetros de mes y año al archivo table.php SOLO si no están vacíos
-                        if (!empty($mesSeleccionado) && !empty($anioSeleccionado)) {
-                            $_GET['mes'] = $mesSeleccionado;
-                            $_GET['anio'] = $anioSeleccionado;
-                        } else {
-                            // Si están vacíos, no pasar los parámetros para mostrar todos
-                            unset($_GET['mes']);
-                            unset($_GET['anio']);
-                        }
-                        include 'modelo/table.php'; 
-                        ?>
+                        <?php if (count($gastos) > 0): ?>
+                            <?php foreach ($gastos as $gasto): ?>
+                                <?php
+                                $categoria_nombre = $gasto['nombre_categoria'] ?? 'Sin categoría';
+                                $categoria_class = 'category-other';
+                                
+                                // Asignar clase CSS según la categoría
+                                if (strpos(strtolower($categoria_nombre), 'comida') !== false) $categoria_class = 'category-food';
+                                elseif (strpos(strtolower($categoria_nombre), 'transporte') !== false) $categoria_class = 'category-transport';
+                                elseif (strpos(strtolower($categoria_nombre), 'vivienda') !== false) $categoria_class = 'category-housing';
+                                elseif (strpos(strtolower($categoria_nombre), 'entretenimiento') !== false) $categoria_class = 'category-entertainment';
+                                ?>
+                                <tr>
+                                    <td class='amount-negative'>- S/ <?php echo number_format($gasto['monto'], 2); ?></td>
+                                    <td><span class='payment-method'><?php echo htmlspecialchars($gasto['forma_pago']); ?></span></td>
+                                    <td><?php echo date('d/m/Y', strtotime($gasto['fecha'])); ?></td>
+                                    <td><span class='category-badge <?php echo $categoria_class; ?>'><?php echo htmlspecialchars($categoria_nombre); ?></span></td>
+                                    <td><?php echo htmlspecialchars($gasto['nota']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan='5' style='text-align: center; padding: 2rem; color: var(--gray-500);'>
+                                    No hay gastos registrados
+                                </td>
+                            </tr>
+                        <?php endif; ?>
                     </tbody>
                 </table>
             </div>
@@ -419,12 +517,12 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="gastoForm" action="./modelo/registroGasto.php" method="POST">
+                    <form id="gastoForm" action="modelo/registroGasto.php" method="POST">
                         <div class="form-group">
                             <label class="form-label">Monto</label>
                             <div class="input-with-icon">
                                 <span>S/</span>
-                                <input type="text" class="form-control-custom" id="montoInput" name="monto" placeholder="0.00" required>
+                                <input type="number" step="0.01" class="form-control-custom" id="montoInput" name="monto" placeholder="0.00" required>
                             </div>
                         </div>
                         
@@ -444,16 +542,24 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
                         </div>
                         
                         <div class="form-group">
+                            <label class="form-label">Fecha</label>
+                            <div class="input-with-icon">
+                                <span><i class="fas fa-calendar"></i></span>
+                                <input type="date" class="form-control-custom" name="fecha" value="<?php echo date('Y-m-d'); ?>" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
                             <label class="form-label">Categoría</label>
                             <div class="input-with-icon">
                                 <span><i class="fas fa-tags"></i></span>
-                                <select class="form-control-custom" name="categoria" required>
+                                <select class="form-control-custom" name="categoria_id" required>
                                     <option value="">Seleccione Categoría</option>
-                                    <option value="1">Comida</option>
-                                    <option value="2">Transporte</option>
-                                    <option value="3">Vivienda</option>
-                                    <option value="4">Entretenimiento</option>
-                                    <option value="5">Otros</option>
+                                    <?php foreach ($categorias as $categoria): ?>
+                                        <option value="<?php echo $categoria['id']; ?>">
+                                            <?php echo htmlspecialchars($categoria['categoria']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
                                 </select>
                             </div>
                         </div>
@@ -481,7 +587,6 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
         document.addEventListener('DOMContentLoaded', function() {
             initializeApp();
             initializeMobileMenu();
-            applyCategoryStyles();
         });
 
         function initializeApp() {
@@ -569,28 +674,6 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
             window.location.href = 'gasto.php';
         }
 
-        function applyCategoryStyles() {
-            // Aplicar clases de categoría a las celdas existentes
-            const categoryCells = document.querySelectorAll('td:nth-child(4)'); // Columna de categoría
-            categoryCells.forEach(cell => {
-                const categoryText = cell.textContent.trim().toLowerCase();
-                let categoryClass = 'category-other';
-                
-                if (categoryText.includes('comida')) categoryClass = 'category-food';
-                else if (categoryText.includes('transporte')) categoryClass = 'category-transport';
-                else if (categoryText.includes('vivienda')) categoryClass = 'category-housing';
-                else if (categoryText.includes('entretenimiento')) categoryClass = 'category-entertainment';
-                
-                cell.innerHTML = `<span class="category-badge ${categoryClass}">${cell.textContent}</span>`;
-            });
-
-            // Aplicar estilo negativo a los montos
-            const amountCells = document.querySelectorAll('td:nth-child(1)'); // Columna de monto
-            amountCells.forEach(cell => {
-                cell.classList.add('amount-negative');
-            });
-        }
-
         function initializeMobileMenu() {
             const mobileMenuBtn = document.getElementById('mobile-menu-btn');
             const sidebar = document.getElementById('sidebar');
@@ -636,7 +719,9 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
             }
         }
     </script>
-        <style>        .logout-btn {
+    
+    <style>
+        .logout-btn {
             background: var(--danger);
             color: white;
             border: none;
@@ -657,6 +742,6 @@ body{font-family:\'Inter\',sans-serif;background:linear-gradient(135deg,#667eea 
             background: #dc2626;
             color: white;
         }
-</style>
+    </style>
 </body>
 </html>
