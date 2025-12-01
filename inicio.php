@@ -19,11 +19,11 @@ $rutaFotoPerfil = (!empty($fotoPerfil) && file_exists("fotos/" . $fotoPerfil))
     : $rutaDefault;
 
 // Configuración de base de datos PostgreSQL
-$host = 'dpg-d421923ipnbc73buvavg-a.oregon-postgres.render.com';
-$port = "5432"; 
-$dbname = "db_finabiz"; 
-$user = "db_finabiz_user"; 
-$password = "AkwKCIh1aJYNAqd687v8a6WZWgun5Axm"; 
+    $host = 'dpg-d421923ipnbc73buvavg-a.oregon-postgres.render.com';
+    $db_name = 'db_finabiz'; // Asegúrate que este nombre sea EXACTO
+    $username = 'db_finabiz_user';
+    $password = 'AkwKCIh1aJYNAqd687v8a6WZWgun5Axm';
+    $port = '5432';
 
 function conectarPostgreSQL($host, $port, $dbname, $user, $password) {
     try {

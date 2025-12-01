@@ -1,12 +1,11 @@
 <?php
 // modelo/conexion.php
 class Database {
-    private $host = 'dpg-d421923ipnbc73buvavg-a.oregon-postgres.render.com';
-    private $db_name = 'db_finabiz';
+   private $host = 'dpg-d421923ipnbc73buvavg-a.oregon-postgres.render.com';
+    private $db_name = 'db_finabiz'; // Asegúrate que este nombre sea EXACTO
     private $username = 'db_finabiz_user';
     private $password = 'AkwKCIh1aJYNAqd687v8a6WZWgun5Axm';
     private $port = '5432';
-    public $conn;
 
     public function getConnection() {
         $this->conn = null;
